@@ -800,9 +800,12 @@ class BaseTemplate:
                 layer=art_layer, path=art_file, docref=self.docref
             )
 
-        if art_reference:
-            # Frame the artwork
+        # Frame the artwork
+        if self.layout.is_panorama and art_reference is not None:
+            art_layers = psd.frame_panoramas(self.active_layer, art_reference)
+        elif art_reference:
             psd.frame_layer(layer=art_layer, ref=art_reference)
+            art_layers = [art_layer]
 
         if self.config.pause_for_manual_art_alignment:
             if not self.pause("Adjust the art alignment manually."):
@@ -810,37 +813,38 @@ class BaseTemplate:
 
         # Perform content aware fill if needed
         if self.is_content_aware_enabled:
-            if self.config.fill_mode == FillMode.CONTENT_AWARE_FILL:
-                psd.content_aware_fill_edges(
-                    layer=art_layer,
-                    contract=self.config.fill_contract,
-                    smooth=self.config.fill_smooth,
-                    feather=self.config.fill_feather,
-                    art_selection_hook=self.art_fill_selection_hook,
-                )
-            elif self.config.fill_mode == FillMode.GENERATIVE_FILL:
-                if _doc_generated := psd.generative_fill_edges(
-                    layer=art_layer,
-                    contract=self.config.fill_contract,
-                    smooth=self.config.fill_smooth,
-                    feather=self.config.fill_feather,
-                    close_doc=bool(not self.config.select_variation),
-                    docref=self.docref,
-                    art_selection_hook=self.art_fill_selection_hook,
-                ):
-                    # Document reference was returned, await user intervention
-                    if not self.pause("Select a Generative Fill variation."):
-                        return
-                    _doc_generated.close(SaveOptions.SaveChanges)
-                return
-            elif self.config.fill_mode == FillMode.REMOVE_CONTENT_FILL:
-                psd.remove_content_fill_edges(
-                    layer=art_layer,
-                    contract=self.config.fill_contract,
-                    smooth=self.config.fill_smooth,
-                    feather=self.config.fill_feather,
-                    art_selection_hook=self.art_fill_selection_hook,
-                )
+            for art_layer in art_layers:
+                if self.config.fill_mode == FillMode.CONTENT_AWARE_FILL:
+                    psd.content_aware_fill_edges(
+                        layer=art_layer,
+                        contract=self.config.fill_contract,
+                        smooth=self.config.fill_smooth,
+                        feather=self.config.fill_feather,
+                        art_selection_hook=self.art_fill_selection_hook,
+                    )
+                elif self.config.fill_mode == FillMode.GENERATIVE_FILL:
+                    if _doc_generated := psd.generative_fill_edges(
+                        layer=art_layer,
+                        contract=self.config.fill_contract,
+                        smooth=self.config.fill_smooth,
+                        feather=self.config.fill_feather,
+                        close_doc=bool(not self.config.select_variation),
+                        docref=self.docref,
+                        art_selection_hook=self.art_fill_selection_hook,
+                    ):
+                        # Document reference was returned, await user intervention
+                        if not self.pause("Select a Generative Fill variation."):
+                            return
+                        _doc_generated.close(SaveOptions.SaveChanges)
+                    return
+                elif self.config.fill_mode == FillMode.REMOVE_CONTENT_FILL:
+                    psd.remove_content_fill_edges(
+                        layer=art_layer,
+                        contract=self.config.fill_contract,
+                        smooth=self.config.fill_smooth,
+                        feather=self.config.fill_feather,
+                        art_selection_hook=self.art_fill_selection_hook,
+                    )
 
     def paste_scryfall_scan(
         self, rotate: bool = False, visible: bool = True

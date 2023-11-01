@@ -233,6 +233,10 @@ class NormalLayout:
     @cached_property
     def is_mdfc(self) -> bool:
         return False
+    
+    @cached_property
+    def is_panorama(self) -> bool:
+        return self.file['kwargs'].get('pano_size', None) is not None
 
     """
     * Core Data

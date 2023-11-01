@@ -250,6 +250,50 @@ def space_layers_apart(layers: Sequence[ArtLayer | LayerSet], gap: int | float) 
 """
 
 
+def frame_panoramas(
+    layer: ArtLayer | LayerSet,
+    reference: ReferenceLayer,
+    anchor: AnchorPosition = AnchorPosition.TopLeft,
+) -> list[ArtLayer]:
+    """
+    Scale, duplicate and position a layer onto a set of layers within the bounds of a reference layer to make a borderless panorama.
+    @param layer: Layer to scale and position.
+    @param reference: Reference frame to position within.
+    @param anchor: Anchor position for scaling the layer.
+    """
+    # Get layer and reference dimensions and scale the layer to fit the height
+    layer_dim = get_layer_dimensions(layer)
+    ref_dim = get_layer_dimensions(reference)
+    scale = 100 * ref_dim["height"] / layer_dim["height"]
+    layer.resize(scale, scale, anchor)
+
+    # Get layer dimensions and check how many segments we'll have
+    # If we're "close to" having an additional segment we scale the layer more
+    layer_dim = get_layer_dimensions(layer)
+    num_segments = int(layer_dim["width"] // ref_dim["width"])
+    num_segments_precise = layer_dim["width"] / ref_dim["width"]
+    if (
+        num_segments_precise > num_segments
+        and (num_segments_precise - num_segments) > 0.75
+    ):
+        scale = 100 * (num_segments + 1) / num_segments_precise
+        layer.resize(scale, scale, anchor)
+        num_segments = num_segments + 1
+
+    # Align the original layer on the left
+    alignments = ("left", "center_y")
+    align(alignments, layer, ref_dim)
+
+    # Duplicate layer n times, moving over every time
+    new_layers: list[ArtLayer | LayerSet] = [layer]
+    for i in range(1, num_segments):
+        new_layer: LayerSet = new_layers[i - 1].duplicate()
+        new_layer.translate(-ref_dim["width"], 0)
+        new_layers.append(new_layer)
+
+    return new_layers
+
+
 def frame_layer(
     layer: ArtLayer | LayerSet,
     ref: ArtLayer | LayerSet | LayerDimensions,
