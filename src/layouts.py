@@ -238,6 +238,10 @@ class NormalLayout:
     def is_panorama(self) -> bool:
         return self.file['kwargs'].get('pano_size', None) is not None
 
+    @cached_property
+    def panorama_element(self) -> int:
+        return int(self.file['kwargs'].get('pano_idx', 0))
+
     """
     * Core Data
     """
