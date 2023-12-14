@@ -242,6 +242,18 @@ class NormalLayout:
     def panorama_element(self) -> int:
         return int(self.file['kwargs'].get('pano_idx', 0))
 
+    @cached_property
+    def panorama_size(self) -> tuple[int, int]:
+        panorama_size = self.file['kwargs'].get('pano_size', "1x1")
+        panorama_size = [int(c) for c in panorama_size.split("x")]
+        match len(panorama_size):
+            case 0:
+                return (1, 1)
+            case 1:
+                return (panorama_size[0], 1)
+            case _:
+                return (panorama_size[0], panorama_size[1])
+
     """
     * Core Data
     """
