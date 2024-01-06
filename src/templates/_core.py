@@ -426,7 +426,7 @@ class BaseTemplate:
     @cached_property
     def is_art_vertical(self) -> bool:
         """bool: Returns True if art provided is vertically oriented, False if it is horizontal."""
-        with Image.open(self.layout.art_file) as image:
+        with Image.open(self.art_file) as image:
             width, height = image.size
         if height > (width * 1.1):
             # Vertical orientation
@@ -747,6 +747,15 @@ class BaseTemplate:
     """
 
     @cached_property
+    def art_file(self) -> Path:
+        """Path to the art file to load."""
+        art_file = self.layout.file.get('kwargs', {}).get('art', None)
+        if art_file is not None:
+            return self.layout.art_file.with_name(art_file)
+        else:
+            return self.layout.art_file
+
+    @cached_property
     def art_action(self) -> Callable[[], None] | None:
         """Function that is called to perform an action on the imported art."""
         return
@@ -767,7 +776,7 @@ class BaseTemplate:
         """Loads the specified art file into the specified layer.
 
         Args:
-            art_file: Optional path (as str or Path) to art file. Will use `self.layout.art_file`
+            art_file: Optional path (as str or Path) to art file. Will use `self.art_file`
                 if not provided.
             art_layer: Optional `ArtLayer` where art image should be placed when imported. Will use `self.art_layer`
                 property if not provided.
@@ -776,7 +785,7 @@ class BaseTemplate:
         """
 
         # Set default values
-        art_file = art_file or self.layout.art_file
+        art_file = art_file or self.art_file
         art_layer = art_layer or self.art_layer
         art_reference = art_reference or self.art_reference
 
