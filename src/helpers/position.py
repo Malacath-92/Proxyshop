@@ -253,7 +253,7 @@ def space_layers_apart(layers: Sequence[ArtLayer | LayerSet], gap: int | float) 
 def frame_panorama(
     layer: ArtLayer | LayerSet,
     reference: ReferenceLayer,
-    panorama_element: int,
+    panorama_position: tuple[int, int],
     panorama_size: tuple[int, int],
     anchor: AnchorPosition = AnchorPosition.TopLeft,
 ) -> None:
@@ -284,10 +284,10 @@ def frame_panorama(
     ref_dim = (
         reference if isinstance(reference, dict) else get_layer_dimensions(reference)
     )
-    pano_x = panorama_element % panorama_size[0]
-    pano_y = panorama_element // panorama_size[0]
-    layer.translate(-ref_dim["width"] * pano_x, 0)
-    layer.translate(0, -ref_dim["height"] * pano_y)
+    pano_x = -ref_dim["width"] * panorama_position[0]
+    pano_y = -ref_dim["height"] * panorama_position[1]
+    layer.translate(pano_x, 0)
+    layer.translate(0, pano_y)
 
 
 def frame_layer(

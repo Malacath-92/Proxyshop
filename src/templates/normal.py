@@ -1464,7 +1464,7 @@ class BorderlessVectorTemplate(
     @cached_property
     def panorama_is_horizontal(self) -> bool:
         """Returns True if panorama goes both down and to the side."""
-        return self.panorama_mode_enabled and self.layout.file['panorama_size'][1] > 1
+        return self.panorama_mode_enabled and self.panorama_size[1] > 1
 
     @cached_property
     def multicolor_textbox(self) -> bool:

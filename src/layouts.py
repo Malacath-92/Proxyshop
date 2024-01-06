@@ -239,8 +239,15 @@ class NormalLayout:
         return self.file['kwargs'].get('pano_size', None) is not None
 
     @cached_property
-    def panorama_element(self) -> int:
-        return int(self.file['kwargs'].get('pano_idx', 0))
+    def panorama_element(self) -> tuple[int, int]:
+        pano_pos_arg = self.file['kwargs'].get('pano_pos', None)
+        if pano_pos_arg is not None and pano_pos_arg.count('x') == 1:
+            return tuple(int(s) for s in pano_pos_arg.split('x')) # type: ignore
+        else:
+            pano_elem = int(self.file['kwargs'].get('pano_elem', 0))
+            pano_x = pano_elem % self.panorama_size[0]
+            pano_y = pano_elem // self.panorama_size[0]
+            return (pano_x, pano_y)
 
     @cached_property
     def panorama_size(self) -> tuple[int, int]:
