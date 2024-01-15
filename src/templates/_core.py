@@ -2,6 +2,7 @@
 * CORE PROXYSHOP TEMPLATES
 """
 
+import os
 from collections.abc import Callable, Sequence
 from contextlib import suppress
 from functools import cached_property
@@ -285,6 +286,10 @@ class BaseTemplate:
         path = Path(self.output_directory, sanitize_card_filename(name)).with_suffix(
             f".{self.config.output_file_type}"
         )
+
+        if self.config.maintain_folder_structure and self.art_file.is_relative_to(PATH.ART):
+            relative_path = self.art_file.parent.relative_to(PATH.ART)
+            path = path.parent / relative_path / path.name
 
         # Are we overwriting duplicate names?
         if not self.config.overwrite_duplicate:
@@ -1650,6 +1655,12 @@ class BaseTemplate:
         # Manual edit step?
         if self.config.exit_early:
             await self.pause_async("Rendering paused for manual editing.")
+
+        # Make sure output folder exists
+        if self.config.maintain_folder_structure:
+            output_folder = self.output_file_name.parent
+            if not os.path.exists(output_folder):
+                os.makedirs(output_folder)
 
         # Save the document
         if not self.run_tasks(

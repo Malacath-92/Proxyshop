@@ -108,6 +108,9 @@ class AppConfig:
             option="Output.File.Name",
             fallback="#name (#frame<, #suffix>) [#set] {#num}",
         )
+        self.maintain_folder_structure = self.file.getboolean(
+            section='APP.FILES', option='Maintain.Folder.Structure',
+            fallback=True)
         self.png_compression_level = self.file.getint(
             "APP.FILES", "PNG.Compression.Level", fallback=3
         )
