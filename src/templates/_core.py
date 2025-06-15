@@ -1628,7 +1628,7 @@ class BaseTemplate:
 
         # Manual edit step?
         if CFG.exit_early and not ENV.TEST_MODE:
-            self.console.await_choice(self.event, app=APP)
+            self.console.await_choice(self.event)
 
         # Save the document
         if not self.run_tasks(
