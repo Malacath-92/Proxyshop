@@ -17,7 +17,6 @@ from omnitils.logs import logger, Logger
 from omnitils.metaclass import Singleton
 
 # Local Imports
-from src import CFG
 from src._config import AppConfig
 from src._state import AppEnvironment, PATH
 from src.utils.windows import WindowState
@@ -164,12 +163,14 @@ class TerminalConsole:
     def __init__(
         self,
         cfg: AppConfig,
-        env: AppEnvironment
+        env: AppEnvironment,
+        app: PhotoshopHandler,
     ):
 
         # Establish global objects
         self.cfg: AppConfig = cfg
         self.env: AppEnvironment = env
+        self.app = app
 
     """
     Logger Object Properties
@@ -339,7 +340,7 @@ class TerminalConsole:
     User Prompt Signals
     """
 
-    def await_choice(self, thr: Event, msg: str | None = None, end: str = "\n", app: PhotoshopHandler | None = None) -> bool:
+    def await_choice(self, thr: Event, msg: str | None = None, end: str = "\n", show_photoshop: bool = True) -> bool:
         """
         Prompt the user to either continue or cancel.
         @param thr: Event object representing the status of the render thread.
@@ -350,9 +351,9 @@ class TerminalConsole:
         # Clear other await procedures, then begin awaiting a user signal
         self.end_await()
         self.update(msg=msg or self.message_waiting, end=end)
-        if app:
+        if self.cfg.minimize_photoshop and show_photoshop:
             # Show Photoshop in case it is minimized
-            app.set_window_state(WindowState.SHOWDEFAULT)
+            self.app.set_window_state(WindowState.SHOWDEFAULT)
         response = input("[Y / Enter] Continue — [N] Cancel")
 
         # Signal the choice
@@ -363,8 +364,8 @@ class TerminalConsole:
         if thr:
             self.cancel_thread(thr) if not choice else self.start_await_cancel(thr)
 
-        if self.running and app and CFG.minimize_photoshop:
-            app.set_window_state(WindowState.MINIMIZE)
+        if choice and self.cfg.minimize_photoshop:
+            self.app.set_window_state(WindowState.MINIMIZE)
 
         return choice
 
