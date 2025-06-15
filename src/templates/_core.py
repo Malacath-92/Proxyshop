@@ -56,6 +56,7 @@ from src.utils.adobe import (
     PS_EXCEPTIONS,
     ReferenceLayer,
     try_photoshop)
+from src.utils.windows import WindowState
 
 """
 * Template Classes
@@ -1546,6 +1547,9 @@ class BaseTemplate:
         ):
             return False
 
+        if CFG.minimize_photoshop:
+            APP.set_window_state(WindowState.MINIMIZE)
+
         # Pre-process layout data
         if not self.run_tasks(
             funcs=self.pre_render_methods,
@@ -1624,7 +1628,7 @@ class BaseTemplate:
 
         # Manual edit step?
         if CFG.exit_early and not ENV.TEST_MODE:
-            self.console.await_choice(self.event)
+            self.console.await_choice(self.event, app=APP)
 
         # Save the document
         if not self.run_tasks(
