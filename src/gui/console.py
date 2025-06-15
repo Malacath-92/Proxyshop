@@ -1,13 +1,15 @@
 """
 CONSOLE MODULES
 """
+from __future__ import annotations
+
 # Standard Library Imports
 import os
 import time
 import traceback
 from functools import cached_property
 from threading import Thread, Event, Lock
-from typing import Optional, Any
+from typing import Optional, Any, TYPE_CHECKING
 from datetime import datetime as dt
 
 # Third Party Imports
@@ -17,10 +19,15 @@ from kivy.uix.label import Label
 from kivy.logger import Logger
 
 # Local Imports
+from src import CFG
 from src._config import AppConfig
 from src._state import AppEnvironment, PATH
 from src.gui._state import get_root_app
 from src.gui.utils import HoverButton
+from src.utils.windows import WindowState
+
+if TYPE_CHECKING:
+    from src.utils.adobe import PhotoshopHandler
 
 
 class GUIConsole(BoxLayout):
@@ -248,7 +255,7 @@ class GUIConsole(BoxLayout):
     * User Prompt Signals
     """
 
-    def await_choice(self, thr: Event, msg: Optional[str] = None, end: str = "\n") -> bool:
+    def await_choice(self, thr: Event, msg: str | None = None, end: str = "\n", app: PhotoshopHandler | None = None) -> bool:
         """Prompt the user to either continue or cancel.
 
         Args:
@@ -263,11 +270,19 @@ class GUIConsole(BoxLayout):
         self.end_await()
         self.update(msg=msg or self.message_waiting, end=end)
         self.enable_buttons()
+        if app:
+            # Show Photoshop in case it is minimized
+            app.set_window_state(WindowState.SHOWDEFAULT)
         self.start_await()
 
         # Cancel the current thread or continue based on user signal
         if thr:
             self.cancel_thread(thr) if not self.running else self.start_await_cancel(thr)
+
+        # Minimize Photoshop if the setting for that is active
+        if self.running and app and CFG.minimize_photoshop:
+            app.set_window_state(WindowState.MINIMIZE)
+
         return self.running
 
     def signal(self, choice: bool) -> None:
