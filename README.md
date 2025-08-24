@@ -7,7 +7,7 @@ If you need help with this app or wish to troubleshoot an issue, [please join ou
 
 
 ![Photoshop](https://img.shields.io/badge/photoshop-CC_2017+-informational?style=plastic)
-![Python](https://img.shields.io/badge/python-3.10_|_3.11_|_3.12-blue?style=plastic)
+![Python](https://img.shields.io/badge/python-3.11_|_3.12_|_3.13-blue?style=plastic)
 [![Discord](https://img.shields.io/discord/889831317066358815?style=plastic&label=discord&color=brightgreen)](https://discord.gg/magicproxies)
 ![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/m/MrTeferi/Proxyshop?style=plastic&label=commits&color=brightgreen)
 [![Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dmpcfill%26type%3Dpatrons&style=plastic&color=red&logo=none)](https://patreon.com/mpcfill)
@@ -106,13 +106,15 @@ If you need help with this app or wish to troubleshoot an issue, [please join ou
 # 🐍 Setup Guide (Python Environment)
 Setting up the Python environment for Proxyshop is intended for advanced users, contributors, and anyone who wants to 
 get their hands dirty making a plugin or custom template for the app! This guide assumes you already have Python installed.
-See the badge above for supported Python versions.
+See `pyproject.toml` for supported Python versions.
 1. Install Poetry with pipx.
     ```bash
     # Install pipx and poetry
     python -m pip install --user pipx
     python -m pipx ensurepath
     pipx install poetry
+    # Store the virtual environment in the project directory
+    poetry config virtualenvs.in-project true
     ```
 2. Clone Proxyshop somewhere on your system, we'll call this the ***root directory***.
     ```bash
@@ -133,8 +135,20 @@ See the badge above for supported Python versions.
     # OPTION 2) Enter the poetry environment, then execute with cli
     poetry shell
     proxyshop gui
+
+    # OPTION 3) Activate the virtual environment and run the app's entrypoint with Python
+    ./.venv/Scripts/Activate
+    python main.py
     ```
 7. Refer to the [usage guide](#-using-the-proxyshop-gui) for navigating the GUI.
+
+# Development Environment
+
+If you want to contribute to Proxyshop you should ensure that your code plays well with the strict type checking of [Pyright](https://github.com/microsoft/pyright) or [Mypy](https://github.com/python/mypy). For example, using [VS Code](https://code.visualstudio.com/) with the extensions below will allow you to see type checking results and take advantage of code completions, such as auto-imports, while writing code, though you are free to use any other setup that suits you as well:
+ - [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+ - [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy)
+ - [Python Environments](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-python-envs)
+ - [Pylance](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-pylance)
 
 # 💾 Download Templates Manually
 If you wish to download the templates manually, visit [this link](https://drive.google.com/drive/u/1/folders/1sgJ3Xu4FabxNgDl0yeI7OjDZ7fqlI4p3). These archives must be extracted to the `/templates` 
