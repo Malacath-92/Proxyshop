@@ -2,7 +2,7 @@
 * Helpers: Masks
 """
 # Standard Library Imports
-from typing import Union
+from _ctypes import COMError
 
 # Third Party Imports
 from photoshop.api import DialogModes, ActionDescriptor, ActionReference
@@ -23,8 +23,8 @@ NO_DIALOG = DialogModes.DisplayNoDialogs
 
 
 def copy_layer_mask(
-    layer_from: Union[ArtLayer, LayerSet],
-    layer_to: Union[ArtLayer, LayerSet]
+    layer_from: ArtLayer | LayerSet,
+    layer_to: ArtLayer | LayerSet
 ) -> None:
     """Copies mask from one layer to another.
 
@@ -46,8 +46,8 @@ def copy_layer_mask(
 
 
 def copy_vector_mask(
-    layer_from: Union[ArtLayer, LayerSet],
-    layer_to: Union[ArtLayer, LayerSet]
+    layer_from: ArtLayer | LayerSet,
+    layer_to: ArtLayer | LayerSet
 ) -> None:
     """Copies vector mask from one layer to another.
 
@@ -75,7 +75,7 @@ def copy_vector_mask(
 """
 
 
-def apply_mask_to_layer_fx(layer: Union[ArtLayer, LayerSet] = None) -> None:
+def apply_mask_to_layer_fx(layer: ArtLayer | LayerSet | None = None) -> None:
     """Sets the layer mask to apply only to layer effects in blending options.
 
     Args:
@@ -95,7 +95,7 @@ def apply_mask_to_layer_fx(layer: Union[ArtLayer, LayerSet] = None) -> None:
 
 
 def set_layer_mask(
-    layer: Union[ArtLayer, LayerSet, None] = None,
+    layer: ArtLayer | LayerSet | None = None,
     visible: bool = True
 ) -> None:
     """Set the visibility of a layer's mask.
@@ -116,7 +116,7 @@ def set_layer_mask(
     APP.executeAction(cID("setd"), desc1, NO_DIALOG)
 
 
-def enable_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
+def enable_mask(layer: ArtLayer | LayerSet | None = None) -> None:
     """Enables a given layer's mask.
 
     Args:
@@ -125,7 +125,7 @@ def enable_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
     set_layer_mask(layer, True)
 
 
-def disable_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
+def disable_mask(layer: ArtLayer | LayerSet | None = None) -> None:
     """Disables a given layer's mask.
 
     Args:
@@ -134,7 +134,7 @@ def disable_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
     set_layer_mask(layer, False)
 
 
-def apply_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
+def apply_mask(layer: ArtLayer | LayerSet | None = None) -> None:
     """Applies a given layer's mask.
 
     Args:
@@ -151,7 +151,7 @@ def apply_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
 
 
 def set_layer_vector_mask(
-    layer: Union[ArtLayer, LayerSet, None] = None,
+    layer: ArtLayer | LayerSet | None = None,
     visible: bool = False
 ) -> None:
     """Set the visibility of a layer's vector mask.
@@ -172,7 +172,7 @@ def set_layer_vector_mask(
     APP.executeAction(sID("set"), desc1, NO_DIALOG)
 
 
-def enable_vector_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
+def enable_vector_mask(layer: ArtLayer | LayerSet | None = None) -> None:
     """Enables a given layer's vector mask.
 
     Args:
@@ -181,7 +181,7 @@ def enable_vector_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
     set_layer_vector_mask(layer, True)
 
 
-def disable_vector_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
+def disable_vector_mask(layer: ArtLayer | LayerSet | None = None) -> None:
     """Disables a given layer's vector mask.
 
     Args:
@@ -195,7 +195,7 @@ def disable_vector_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
 """
 
 
-def enter_mask_channel(layer: Union[ArtLayer, LayerSet, None] = None):
+def enter_mask_channel(layer: ArtLayer | LayerSet | None = None):
     """Enters mask channel to allow working with current layer's mask.
 
     Args:
@@ -205,13 +205,13 @@ def enter_mask_channel(layer: Union[ArtLayer, LayerSet, None] = None):
         APP.activeDocument.activeLayer = layer
     d1 = ActionDescriptor()
     r1 = ActionReference()
-    r1.PutEnumerated(sID("channel"), sID("channel"), sID("mask"))
-    d1.PutReference(sID("target"), r1)
-    d1.PutBoolean(sID("makeVisible"), True)
-    APP.Executeaction(sID("select"), d1, NO_DIALOG)
+    r1.putEnumerated(sID("channel"), sID("channel"), sID("mask"))
+    d1.putReference(sID("target"), r1)
+    d1.putBoolean(sID("makeVisible"), True)
+    APP.executeAction(sID("select"), d1, NO_DIALOG)
 
 
-def enter_rgb_channel(layer: Union[ArtLayer, LayerSet, None] = None):
+def enter_rgb_channel(layer: ArtLayer | LayerSet | None = None):
     """Enters the RGB channel (default channel).
 
     Args:
@@ -221,13 +221,13 @@ def enter_rgb_channel(layer: Union[ArtLayer, LayerSet, None] = None):
         APP.activeDocument.activeLayer = layer
     d1 = ActionDescriptor()
     r1 = ActionReference()
-    r1.PutEnumerated(sID("channel"), sID("channel"), sID("RGB"))
-    d1.PutReference(sID("target"), r1)
-    d1.PutBoolean(sID("makeVisible"), True)
-    APP.Executeaction(sID("select"), d1, NO_DIALOG)
+    r1.putEnumerated(sID("channel"), sID("channel"), sID("RGB"))
+    d1.putReference(sID("target"), r1)
+    d1.putBoolean(sID("makeVisible"), True)
+    APP.executeAction(sID("select"), d1, NO_DIALOG)
 
 
-def create_mask(layer: Union[ArtLayer, LayerSet, None] = None):
+def create_mask(layer: ArtLayer | LayerSet | None = None):
     """Add a mask to provided or active layer.
 
     Args:
@@ -237,16 +237,16 @@ def create_mask(layer: Union[ArtLayer, LayerSet, None] = None):
         APP.activeDocument.activeLayer = layer
     d1 = ActionDescriptor()
     r1 = ActionReference()
-    d1.PutClass(sID("new"), sID("channel"))
-    r1.PutEnumerated(sID("channel"), sID("channel"), sID("mask"))
-    d1.PutReference(sID("at"), r1)
-    d1.PutEnumerated(sID("using"), sID("userMaskEnabled"), sID("revealAll"))
-    APP.Executeaction(sID("make"), d1, NO_DIALOG)
+    d1.putClass(sID("new"), sID("channel"))
+    r1.putEnumerated(sID("channel"), sID("channel"), sID("mask"))
+    d1.putReference(sID("at"), r1)
+    d1.putEnumerated(sID("using"), sID("userMaskEnabled"), sID("revealAll"))
+    APP.executeAction(sID("make"), d1, NO_DIALOG)
 
 
 def copy_to_mask(
-    target: Union[ArtLayer, LayerSet],
-    source: Union[ArtLayer, LayerSet, None] = None,
+    target: ArtLayer | LayerSet,
+    source: ArtLayer | LayerSet | None = None,
 ):
     """Copies the pixels of the current layer, creates a mask on target layer,
     enters that layer's mask, and pastes to the mask before exiting the mask.
@@ -269,7 +269,11 @@ def copy_to_mask(
     docref.activeLayer = target
     create_mask()
     enter_mask_channel()
-    docref.paste()
+    try:
+        docref.paste()
+    except COMError:
+        # The operation likely succeeded, but an error was thrown anyways
+        pass
     enter_rgb_channel()
 
 
@@ -278,7 +282,7 @@ def copy_to_mask(
 """
 
 
-def delete_mask(layer: Union[ArtLayer, LayerSet, None] = None) -> None:
+def delete_mask(layer: ArtLayer | LayerSet | None = None) -> None:
     """Removes a given layer's mask.
 
     Args:

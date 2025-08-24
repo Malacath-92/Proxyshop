@@ -3,10 +3,10 @@
 """
 # Standard Library Imports
 from contextlib import suppress
-from typing import Optional, Union, Iterable
+from collections.abc import Sequence, Iterable
 
 # Third Party Imports
-from photoshop.api import DialogModes, ActionDescriptor, ActionReference, BlendMode
+from photoshop.api import DialogModes, ActionDescriptor, ActionReference, BlendMode, ElementPlacement
 from photoshop.api._artlayer import ArtLayer
 from photoshop.api._document import Document
 from photoshop.api._layerSet import LayerSet
@@ -27,8 +27,8 @@ NO_DIALOG = DialogModes.DisplayNoDialogs
 
 def getLayer(
     name: str,
-    group: Union[str, None, list[str], LayerContainerTypes, Iterable[LayerContainerTypes]] = None
-) -> Optional[ArtLayer]:
+    group: str | None | LayerContainerTypes | Iterable[LayerContainerTypes | str | None] = None
+) -> ArtLayer | None:
     """Retrieve ArtLayer object from given name and group/group tree.
 
     Args:
@@ -49,7 +49,7 @@ def getLayer(
         elif isinstance(group, LayerContainer):
             # LayerSet object given
             return group.artLayers[name]
-        elif isinstance(group, (tuple, list)):
+        elif isinstance(group, tuple | list):
             # Tuple or list of LayerSets
             layer_set = APP.activeDocument
             for g in group:
@@ -61,7 +61,7 @@ def getLayer(
                     layer_set = g
             return layer_set.artLayers[name]
         # ArtLayer can't be located
-        raise OSError(f"ArtLayer invalid")
+        raise OSError("ArtLayer invalid")
     except PS_EXCEPTIONS:
         # Layer couldn't be found
         if ENV.DEV_MODE:
@@ -75,8 +75,8 @@ def getLayer(
 
 def getLayerSet(
     name: str,
-    group: Union[str, None, list[str], LayerContainerTypes, Iterable[LayerContainerTypes]] = None
-) -> Optional[LayerSet]:
+    group: str | None | LayerContainerTypes | Iterable[LayerContainerTypes | str | None] = None
+) -> LayerSet | None:
     """Retrieve layer group object.
 
     Args:
@@ -94,7 +94,7 @@ def getLayerSet(
         elif isinstance(group, str):
             # LayerSet name given
             return APP.activeDocument.layerSets[group].layerSets[name]
-        elif isinstance(group, (tuple, list)):
+        elif isinstance(group, tuple | list):
             # Tuple or list of groups
             layer_set = APP.activeDocument
             for g in group:
@@ -109,7 +109,7 @@ def getLayerSet(
             # LayerSet object given
             return group.layerSets[name]
         # LayerSet can't be located
-        raise OSError(f"LayerSet invalid")
+        raise OSError("LayerSet invalid")
     except PS_EXCEPTIONS:
         # LayerSet couldn't be found
         if ENV.DEV_MODE:
@@ -121,7 +121,7 @@ def getLayerSet(
     return
 
 
-def get_reference_layer(name: str, group: Union[None, str, LayerSet] = None) -> Optional[ReferenceLayer]:
+def get_reference_layer(name: str, group: None | str | LayerSet | Document = None) -> ReferenceLayer | None:
     """Get an ArtLayer that is a static reference layer.
 
     Args:
@@ -156,7 +156,7 @@ def get_reference_layer(name: str, group: Union[None, str, LayerSet] = None) -> 
 """
 
 
-def create_new_layer(layer_name: Optional[str] = None) -> ArtLayer:
+def create_new_layer(layer_name: str | None = None) -> ArtLayer:
     """Creates a new layer below the currently active layer. The layer will be visible.
 
     Args:
@@ -174,15 +174,12 @@ def create_new_layer(layer_name: Optional[str] = None) -> ArtLayer:
     layer.blendMode = BlendMode.NormalBlend
 
     # Move the layer below
-    layer.moveAfter(active_layer)
+    layer.move(active_layer, ElementPlacement.PlaceAfter)
     return layer
 
 
-def merge_layers(layers: list[ArtLayer] = None, name: Optional[str] = None) -> ArtLayer:
+def merge_layers(layers: list[ArtLayer | LayerSet], name: str | None = None) -> ArtLayer:
     """Merge a set of layers together.
-
-    Todo:
-        Check if this can merge layer groups with layers.
 
     Args:
         layers: Layers to be merged, uses active if not provided.
@@ -191,10 +188,11 @@ def merge_layers(layers: list[ArtLayer] = None, name: Optional[str] = None) -> A
     Returns:
         Returns the merged layer.
     """
+    # TODO Check if this can merge layer groups with layers.
 
     # Return layer if only one is present in the list
-    if len(layers) == 1:
-        return layers[0]
+    if len(layers) == 1 and isinstance((layer := layers[0]), ArtLayer):
+        return layer
 
     # Select none, then select entire list
     if layers:
@@ -202,9 +200,14 @@ def merge_layers(layers: list[ArtLayer] = None, name: Optional[str] = None) -> A
 
     # Merge layers and return result
     APP.executeAction(sID("mergeLayersNew"), None, NO_DIALOG)
+
+    active_layer = APP.activeDocument.activeLayer
+    if not isinstance(active_layer, ArtLayer):
+        raise ValueError("Failed to merge layers. Active layer is unexpectedly not an ArtLayer.")
+
     if name:
-        APP.activeDocument.activeLayer.name = name
-    return APP.activeDocument.activeLayer
+        active_layer.name = name
+    return active_layer
 
 
 """
@@ -213,8 +216,8 @@ def merge_layers(layers: list[ArtLayer] = None, name: Optional[str] = None) -> A
 
 
 def group_layers(
-    name: Optional[str] = "New Group",
-    layers: Optional[list[Union[ArtLayer, LayerSet]]] = None,
+    name: str = "New Group",
+    layers: list[ArtLayer | LayerSet] | None = None,
 ) -> LayerSet:
     """Groups the selected layers.
 
@@ -244,10 +247,15 @@ def group_layers(
     desc1.putInteger(sID("layerSectionEnd"), 1)
     desc1.putString(cID('Nm  '), name)
     APP.executeAction(cID('Mk  '), desc1, NO_DIALOG)
-    return APP.activeDocument.activeLayer
+
+    active_layer = APP.activeDocument.activeLayer
+    if not isinstance(active_layer, LayerSet):
+        raise ValueError("Failed to group layers. Active layer is unexpectedly not a LayerSet.")
+
+    return active_layer
 
 
-def duplicate_group(name: str) -> LayerSet:
+def duplicate_group(group: LayerSet, name: str) -> LayerSet:
     """Duplicates current active layer set without renaming contents.
 
     Args:
@@ -256,6 +264,8 @@ def duplicate_group(name: str) -> LayerSet:
     Returns:
         The newly created layer set object.
     """
+    select_layer(group)
+
     desc241 = ActionDescriptor()
     ref4 = ActionReference()
     ref4.putEnumerated(sID("layer"), sID("ordinal"), sID("targetEnum"))
@@ -263,10 +273,15 @@ def duplicate_group(name: str) -> LayerSet:
     desc241.putString(sID("name"), name)
     desc241.putInteger(sID("version"),  5)
     APP.executeAction(sID("duplicate"), desc241, NO_DIALOG)
-    return APP.activeDocument.activeLayer
+
+    active_layer = APP.activeDocument.activeLayer
+    if not isinstance(active_layer, LayerSet):
+        raise ValueError("Failed to duplicate group. Active layer is unexpectedly not a LayerSet.")
+
+    return active_layer
 
 
-def merge_group(group: Optional[LayerSet] = None) -> None:
+def merge_group(group: LayerSet | None = None) -> None:
     """Merges a layer set into a single layer.
 
     Args:
@@ -282,7 +297,7 @@ def merge_group(group: Optional[LayerSet] = None) -> None:
 """
 
 
-def smart_layer(layer: Union[ArtLayer, LayerSet] = None, docref: Optional[Document] = None) -> ArtLayer:
+def smart_layer(layer: ArtLayer | LayerSet | None = None, docref: Document | None = None) -> ArtLayer:
     """Makes a given layer, or the currently selected layer(s) into a smart layer.
 
     Args:
@@ -293,10 +308,15 @@ def smart_layer(layer: Union[ArtLayer, LayerSet] = None, docref: Optional[Docume
     if layer:
         docref.activeLayer = layer
     APP.executeAction(sID("newPlacedLayer"), None, NO_DIALOG)
-    return docref.activeLayer
+    
+    active_layer = APP.activeDocument.activeLayer
+    if not isinstance(active_layer, ArtLayer):
+        raise ValueError("Failed to convert layer to smart layer. Active layer is unexpectedly not an ArtLayer.")
+
+    return active_layer
 
 
-def edit_smart_layer(layer: Optional[ArtLayer] = None, docref: Optional[Document] = None) -> None:
+def edit_smart_layer(layer: ArtLayer | None = None, docref: Document | None = None) -> None:
     """Opens the contents of a given smart layer (as a separate document) for editing.
 
     Args:
@@ -309,7 +329,7 @@ def edit_smart_layer(layer: Optional[ArtLayer] = None, docref: Optional[Document
     APP.executeAction(sID("placedLayerEditContents"), None, NO_DIALOG)
 
 
-def unpack_smart_layer(layer: Optional[ArtLayer] = None, docref: Optional[Document] = None) -> None:
+def unpack_smart_layer(layer: ArtLayer | None = None, docref: Document | None = None) -> None:
     """Converts a smart layer back into its separate components.
 
     Args:
@@ -327,7 +347,7 @@ def unpack_smart_layer(layer: Optional[ArtLayer] = None, docref: Optional[Docume
 """
 
 
-def lock_layer(layer: Union[ArtLayer, LayerSet], protection: str = "protectAll") -> None:
+def lock_layer(layer: ArtLayer | LayerSet, protection: str = "protectAll") -> None:
     """Locks the given layer.
 
     Args:
@@ -345,7 +365,7 @@ def lock_layer(layer: Union[ArtLayer, LayerSet], protection: str = "protectAll")
     APP.executeAction(sID("applyLocking"), d1, NO_DIALOG)
 
 
-def unlock_layer(layer: Union[ArtLayer, LayerSet]) -> None:
+def unlock_layer(layer: ArtLayer | LayerSet) -> None:
     """Unlocks the given layer.
 
     Args:
@@ -359,7 +379,7 @@ def unlock_layer(layer: Union[ArtLayer, LayerSet]) -> None:
 """
 
 
-def select_layer(layer: Union[ArtLayer, LayerSet], make_visible: bool = False) -> None:
+def select_layer(layer: ArtLayer | LayerSet, make_visible: bool = False) -> None:
     """Select a layer and optionally make it visible.
 
     Args:
@@ -375,7 +395,7 @@ def select_layer(layer: Union[ArtLayer, LayerSet], make_visible: bool = False) -
 
 
 def select_layer_add(
-    layer: Union[ArtLayer, LayerSet],
+    layer: ArtLayer | LayerSet,
     make_visible: bool = False
 ) -> None:
     """Add layer to currently selected and optionally force it to be visible.
@@ -396,7 +416,7 @@ def select_layer_add(
     APP.executeAction(sID('select'), desc1, NO_DIALOG)
 
 
-def select_layers(layers: list[Union[ArtLayer, LayerSet]]) -> None:
+def select_layers(layers: Sequence[ArtLayer | LayerSet]) -> None:
     """Makes a list of layers active (selected) in the layer panel.
 
     Args:
@@ -419,14 +439,14 @@ def select_layers(layers: list[Union[ArtLayer, LayerSet]]) -> None:
     d1, r1 = ActionDescriptor(), ActionReference()
 
     # Select initial layer
-    r1.putIdentifier(idLayer, layers.pop().id)
+    r1.putIdentifier(idLayer, layers[0].id)
     d1.putReference(idTarget, r1)
     d1.putEnumerated(idSelMod, idSelModType, idAddToSel)
     d1.putBoolean(sID('makeVisible'), False)
     APP.executeAction(idSelect, d1, NO_DIALOG)
 
     # Select each additional layer
-    for lay in layers:
+    for lay in layers[1:]:
         r1.putIdentifier(idLayer, lay.id)
         d1.putReference(idTarget, r1)
         APP.executeAction(idSelect, d1, NO_DIALOG)

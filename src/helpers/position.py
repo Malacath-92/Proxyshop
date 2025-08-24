@@ -3,7 +3,8 @@
 """
 # Standard Library Imports
 import math
-from typing import Optional, Sequence, Union
+from typing import Literal
+from collections.abc import Sequence
 
 # Third Party Imports
 from photoshop.api import DialogModes, AnchorPosition
@@ -40,11 +41,12 @@ positions_vertical = [Dimensions.Top, Dimensions.Bottom, Dimensions.CenterY]
 * Alignment Funcs
 """
 
+DimensionNames = Literal["width", "height", "center_x", "center_y", "left", "right", "top", "bottom"]
 
 def align(
-    axis: Union[Dimensions, list[Dimensions], None] = None,
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    axis: DimensionNames | Sequence[DimensionNames] | None = None,
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None,
 ) -> None:
     """Align the currently active layer to current selection, vertically or horizontal.
 
@@ -54,14 +56,14 @@ def align(
         ref: Reference to align the layer within. Uses current selection if not provided.
     """
     # Default axis is both
-    axis = axis or [Dimensions.CenterX, Dimensions.CenterY]
+    axis = axis or ("center_x", "center_y")
     axis = [axis] if isinstance(axis, str) else axis
     x, y = 0, 0
 
     # Get the dimensions of layer and reference if not provided
     layer = layer or APP.activeDocument.activeLayer
-    item: type[LayerDimensions] = get_layer_dimensions(layer)
-    area: type[LayerDimensions] = ref if isinstance(ref, dict) else (
+    item = get_layer_dimensions(layer)
+    area = ref if isinstance(ref, dict) else (
         get_dimensions_from_bounds(APP.activeDocument.selection.bounds)
         if not ref else get_layer_dimensions(ref))
 
@@ -77,59 +79,59 @@ def align(
 
 
 def align_all(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing CenterX and CenterY to align function."""
-    align([Dimensions.CenterX, Dimensions.CenterY], layer, ref)
+    align(["center_x", "center_y"], layer, ref)
 
 
 def align_vertical(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing CenterY to align function."""
-    align(Dimensions.CenterY, layer, ref)
+    align("center_y", layer, ref)
 
 
 def align_horizontal(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing CenterX to align function."""
-    align(Dimensions.CenterX, layer, ref)
+    align("center_x", layer, ref)
 
 
 def align_left(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing Left to align function."""
-    align(Dimensions.Left, layer, ref)
+    align("left", layer, ref)
 
 
 def align_right(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing Right to align function."""
-    align(Dimensions.Right, layer, ref)
+    align("right", layer, ref)
 
 
 def align_top(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing Top to align function."""
-    align(Dimensions.Top, layer, ref)
+    align("top", layer, ref)
 
 
 def align_bottom(
-    layer: Union[ArtLayer, LayerSet, None] = None,
-    ref: Union[ArtLayer, LayerSet, ReferenceLayer, type[LayerDimensions], None] = None
+    layer: ArtLayer | LayerSet | None = None,
+    ref: ArtLayer | LayerSet | ReferenceLayer | LayerDimensions | None = None
 ) -> None:
     """Utility definition for passing Bottom to align function."""
-    align(Dimensions.Bottom, layer, ref)
+    align("bottom", layer, ref)
 
 
 """
@@ -138,10 +140,10 @@ def align_bottom(
 
 
 def position_between_layers(
-    layer: Union[ArtLayer, LayerSet],
-    top_layer: Union[ArtLayer, LayerSet],
-    bottom_layer: Union[ArtLayer, LayerSet],
-    docref: Optional[Document] = None
+    layer: ArtLayer | LayerSet,
+    top_layer: ArtLayer | LayerSet,
+    bottom_layer: ArtLayer | LayerSet,
+    docref: Document | None = None
 ) -> None:
     """Align layer vertically between two reference layers.
 
@@ -159,7 +161,7 @@ def position_between_layers(
 def position_dividers(
     dividers: Sequence[ArtLayer | LayerSet],
     layers: Sequence[ArtLayer | LayerSet],
-    docref: Optional[Document] = None
+    docref: Document | None = None
 ) -> None:
     """Positions a list of dividers between a list of layers.
 
@@ -179,8 +181,8 @@ def position_dividers(
 def spread_layers_over_reference(
     layers: list[ArtLayer],
     ref: ReferenceLayer,
-    gap: Optional[Union[int, float]] = None,
-    inside_gap: Union[int, float, None] = None,
+    gap: float = 0,
+    inside_gap: float = 0,
     outside_matching: bool = True
 ) -> None:
     """Spread layers apart across a reference layer.
@@ -222,7 +224,7 @@ def spread_layers_over_reference(
     space_layers_apart(layers, inside_gap)
 
 
-def space_layers_apart(layers: list[Union[ArtLayer, LayerSet]], gap: Union[int, float]) -> None:
+def space_layers_apart(layers: Sequence[ArtLayer | LayerSet], gap: int | float) -> None:
     """Position list of layers apart using a given gap.
 
     Args:
@@ -230,7 +232,7 @@ def space_layers_apart(layers: list[Union[ArtLayer, LayerSet]], gap: Union[int, 
         gap: Gap in pixels.
     """
     # Position each layer relative to the one above it
-    for i in range((len(layers) - 1)):
+    for i in range(len(layers) - 1):
         delta = (layers[i].bounds[3] + gap) - layers[i + 1].bounds[1]
         layers[i + 1].translate(0, delta)
 
@@ -241,12 +243,12 @@ def space_layers_apart(layers: list[Union[ArtLayer, LayerSet]], gap: Union[int, 
 
 
 def frame_layer(
-    layer: Union[ArtLayer, LayerSet],
-    ref: Union[ArtLayer, LayerSet, type[LayerDimensions]],
+    layer: ArtLayer | LayerSet,
+    ref: ArtLayer | LayerSet | LayerDimensions,
     smallest: bool = False,
     anchor: AnchorPosition = AnchorPosition.MiddleCenter,
-    alignments: Union[Dimensions, list[Dimensions], None] = None,
-    scale: int = 100,
+    alignments: DimensionNames | Sequence[DimensionNames] | None = None,
+    scale: float = 100,
 ) -> None:
     """Scale and position a layer within the bounds of a reference.
 
@@ -270,15 +272,15 @@ def frame_layer(
     layer.resize(scale, scale, anchor)
 
     # Default alignments are center horizontal and vertical
-    align(alignments or [Dimensions.CenterX, Dimensions.CenterY], layer, ref_dim)
+    align(alignments or ("center_x", "center_y"), layer, ref_dim)
 
 
 def frame_layer_by_height(
-    layer: Union[ArtLayer, LayerSet],
-    ref: Union[ArtLayer, LayerSet, type[LayerDimensions]],
+    layer: ArtLayer | LayerSet,
+    ref: ArtLayer | LayerSet | LayerDimensions,
     anchor: AnchorPosition = AnchorPosition.MiddleCenter,
-    alignments: Union[Dimensions, list[Dimensions], None] = None,
-    scale: int = 100,
+    alignments: DimensionNames | Sequence[DimensionNames] | None = None,
+    scale: float = 100,
 ) -> None:
     """Scale and position a layer based on the height of a reference layer.
 
@@ -297,15 +299,15 @@ def frame_layer_by_height(
     layer.resize(scale, scale, anchor)
 
     # Default alignments are center horizontal and vertical
-    align(alignments or [Dimensions.CenterX, Dimensions.CenterY], layer, ref_dim)
+    align(alignments or ("center_x", "center_y"), layer, ref_dim)
 
 
 def frame_layer_by_width(
-    layer: Union[ArtLayer, LayerSet],
-    ref: Union[ArtLayer, LayerSet, type[LayerDimensions]],
+    layer: ArtLayer | LayerSet,
+    ref: ArtLayer | LayerSet | LayerDimensions,
     anchor: AnchorPosition = AnchorPosition.MiddleCenter,
-    alignments: Union[Dimensions, list[Dimensions], None] = None,
-    scale: int = 100,
+    alignments: DimensionNames | Sequence[DimensionNames] | None = None,
+    scale: float = 100,
 ) -> None:
     """Scale and position a layer based on the width of a reference layer.
 
@@ -324,7 +326,7 @@ def frame_layer_by_width(
     layer.resize(scale, scale, anchor)
 
     # Default alignments are center horizontal and vertical
-    align(alignments or [Dimensions.CenterX, Dimensions.CenterY], layer, ref_dim)
+    align(alignments or ("center_x", "center_y"), layer, ref_dim)
 
 
 """
@@ -333,9 +335,9 @@ def frame_layer_by_width(
 
 
 def check_reference_overlap(
-    layer: Optional[ArtLayer],
-    ref_bounds: tuple[int, int, int, int],
-    docsel: Optional[Selection] = None
+    layer: ArtLayer,
+    ref_bounds: tuple[float,float,float,float],
+    docsel: Selection | None = None
 ):
     """Checks if a layer is overlapping with given set of bounds.
 
@@ -347,10 +349,11 @@ def check_reference_overlap(
     Returns:
         Bounds if overlap exists, otherwise None.
     """
-    select_bounds(ref_bounds, selection=docsel)
+    selection = docsel or APP.activeDocument.selection
+    select_bounds(ref_bounds, selection=selection)
     select_overlapping(layer)
-    if bounds := check_selection_bounds(docsel):
-        docsel.deselect()
+    if bounds := check_selection_bounds(selection):
+        selection.deselect()
         return ref_bounds[1] - bounds[3]
     return 0
 
@@ -358,8 +361,8 @@ def check_reference_overlap(
 def clear_reference_vertical(
     layer: ArtLayer,
     ref: ReferenceLayer,
-    docsel: Optional[Selection] = None
-) -> Union[int, float]:
+    docsel: Selection | None = None
+) -> int | float:
     """Nudges a layer clear vertically of a given reference layer or area.
 
     Args:
@@ -385,12 +388,12 @@ def clear_reference_vertical_multi(
     text_layers: list[ArtLayer],
     ref: ReferenceLayer,
     loyalty_ref: ReferenceLayer,
-    space: Union[int, float],
+    space: int | float,
     uniform_gap: bool = False,
-    font_size: Optional[float] = None,
+    font_size: float | None = None,
     step: float = 0.2,
-    docref: Optional[Document] = None,
-    docsel: Optional[Selection] = None
+    docref: Document | None = None,
+    docsel: Selection | None = None
 ) -> None:
     """Shift or resize multiple text layers to prevent vertical collision with a reference area.
 
@@ -460,7 +463,7 @@ def clear_reference_vertical_multi(
     spread_layers_over_reference(
         layers=text_layers,
         ref=ref,
-        gap=space if not uniform_gap else None,
+        gap=space if not uniform_gap else 0,
         outside_matching=False)
 
     # Check for another iteration

@@ -1,8 +1,9 @@
 """
 * Global Settings Module
 """
+
 # Standard Library Imports
-from typing import Optional
+from typing import Literal, overload
 
 # Third Party Imports
 from omnitils.metaclass import Singleton
@@ -17,7 +18,7 @@ from src.enums.settings import (
     ScryfallSorting,
     ScryfallUnique,
     CollectorPromo,
-    WatermarkMode
+    WatermarkMode,
 )
 from src._loader import ConfigManager
 
@@ -25,6 +26,7 @@ from src._loader import ConfigManager
 class AppConfig:
     """Stores the current state of app and template settings. Can be changed within a template
     class to affect rendering behavior."""
+
     __metaclass__ = Singleton
 
     def __init__(self, env: AppEnvironment):
@@ -36,61 +38,134 @@ class AppConfig:
         """Updates the defined settings values using the currently loaded ConfigParser object."""
 
         # APP - FILES
-        self.overwrite_duplicate = self.file.getboolean('APP.FILES', 'Overwrite.Duplicate', fallback=True)
-        self.output_file_type = self.get_option('APP.FILES', 'Output.File.Type', OutputFileType)
+        self.overwrite_duplicate = self.file.getboolean(
+            "APP.FILES", "Overwrite.Duplicate", fallback=True
+        )
+        self.output_file_type = self.get_option(
+            "APP.FILES", "Output.File.Type", OutputFileType
+        )
         self.output_file_name = self.file.get(
-            section='APP.FILES', option='Output.File.Name',
-            fallback='#name (#frame<, #suffix>) [#set] {#num}')
+            section="APP.FILES",
+            option="Output.File.Name",
+            fallback="#name (#frame<, #suffix>) [#set] {#num}",
+        )
 
         # APP - DATA
-        self.lang = self.file.get('APP.DATA', 'Scryfall.Language', fallback='en')
-        self.scry_sorting = self.get_option('APP.DATA', 'Scryfall.Sorting', ScryfallSorting)
-        self.scry_ascending = self.file.getboolean('APP.DATA', 'Scryfall.Ascending', fallback=False)
-        self.scry_extras = self.file.getboolean('APP.DATA', 'Scryfall.Extras', fallback=False)
-        self.scry_unique = self.get_option('APP.DATA', 'Scryfall.Unique', ScryfallUnique)
-        self.manually_edit_card_data = self.file.getboolean('APP.DATA', 'Manually.Edit.Card.Data', fallback=False)
-        self.manual_text_editor = self.file.get('APP.DATA', 'Manual.Text.Editor', fallback='notepad "{}"')
+        self.lang = self.file.get("APP.DATA", "Scryfall.Language", fallback="en")
+        self.scry_sorting = self.get_option(
+            "APP.DATA", "Scryfall.Sorting", ScryfallSorting
+        )
+        self.scry_ascending = self.file.getboolean(
+            "APP.DATA", "Scryfall.Ascending", fallback=False
+        )
+        self.scry_extras = self.file.getboolean(
+            "APP.DATA", "Scryfall.Extras", fallback=False
+        )
+        self.scry_unique = self.get_option(
+            "APP.DATA", "Scryfall.Unique", ScryfallUnique
+        )
+        self.manually_edit_card_data = self.file.getboolean(
+            "APP.DATA", "Manually.Edit.Card.Data", fallback=False
+        )
+        self.manual_text_editor = self.file.get(
+            "APP.DATA", "Manual.Text.Editor", fallback='notepad "{}"'
+        )
 
         # APP - TEXT
-        self.force_english_formatting = self.file.getboolean('APP.TEXT', "Force.English.Formatting", fallback=False)
+        self.force_english_formatting = self.file.getboolean(
+            "APP.TEXT", "Force.English.Formatting", fallback=False
+        )
 
         # APP - RENDER
-        self.skip_failed = self.file.getboolean('APP.RENDER', 'Skip.Failed', fallback=False)
-        self.generative_fill = False if self.ENV.TEST_MODE else self.file.getboolean(
-            'APP.RENDER', 'Generative.Fill', fallback=False)
-        self.select_variation = self.file.getboolean('APP.RENDER', 'Select.Variation', fallback=False)
-        self.feathered_fill = self.file.getboolean('APP.RENDER', 'Feathered.Fill', fallback=False)
-        self.vertical_fullart = self.file.getboolean('APP.RENDER', 'Vertical.Fullart', fallback=False)
+        self.skip_failed = self.file.getboolean(
+            "APP.RENDER", "Skip.Failed", fallback=False
+        )
+        self.generative_fill = (
+            False
+            if self.ENV.TEST_MODE
+            else self.file.getboolean("APP.RENDER", "Generative.Fill", fallback=False)
+        )
+        self.select_variation = self.file.getboolean(
+            "APP.RENDER", "Select.Variation", fallback=False
+        )
+        self.feathered_fill = self.file.getboolean(
+            "APP.RENDER", "Feathered.Fill", fallback=False
+        )
+        self.vertical_fullart = self.file.getboolean(
+            "APP.RENDER", "Vertical.Fullart", fallback=False
+        )
 
         # BASE - TEXT
-        self.flavor_divider = self.file.getboolean('BASE.TEXT', 'Flavor.Divider', fallback=True)
-        self.remove_flavor = self.file.getboolean('BASE.TEXT', 'No.Flavor.Text', fallback=False)
-        self.remove_reminder = self.file.getboolean('BASE.TEXT', 'No.Reminder.Text', fallback=False)
-        self.collector_mode = self.get_option('BASE.TEXT', 'Collector.Mode', CollectorMode)
-        self.collector_promo = self.get_option('BASE.TEXT', "Collector.Promo", CollectorPromo)
+        self.flavor_divider = self.file.getboolean(
+            "BASE.TEXT", "Flavor.Divider", fallback=True
+        )
+        self.remove_flavor = self.file.getboolean(
+            "BASE.TEXT", "No.Flavor.Text", fallback=False
+        )
+        self.remove_reminder = self.file.getboolean(
+            "BASE.TEXT", "No.Reminder.Text", fallback=False
+        )
+        self.collector_mode = self.get_option(
+            "BASE.TEXT", "Collector.Mode", CollectorMode
+        )
+        self.collector_promo = self.get_option(
+            "BASE.TEXT", "Collector.Promo", CollectorPromo
+        )
 
         # BASE - SYMBOLS
-        self.symbol_enabled = self.file.getboolean('BASE.SYMBOLS', 'Enable.Expansion.Symbol', fallback=True)
-        self.symbol_default = self.file.get('BASE.SYMBOLS', 'Default.Symbol', fallback='MTG')
-        self.symbol_force_default = self.file.getboolean('BASE.SYMBOLS', 'Force.Default.Symbol', fallback=False)
+        self.symbol_enabled = self.file.getboolean(
+            "BASE.SYMBOLS", "Enable.Expansion.Symbol", fallback=True
+        )
+        self.symbol_default = self.file.get(
+            "BASE.SYMBOLS", "Default.Symbol", fallback="MTG"
+        )
+        self.symbol_force_default = self.file.getboolean(
+            "BASE.SYMBOLS", "Force.Default.Symbol", fallback=False
+        )
 
         # BASE - WATERMARKS
-        self.watermark_mode = self.get_option('BASE.WATERMARKS', 'Watermark.Mode', WatermarkMode)
-        self.watermark_default = self.file.get('BASE.WATERMARKS', 'Default.Watermark', fallback='WOTC')
-        self.watermark_opacity = self.file.getint('BASE.WATERMARKS', 'Watermark.Opacity', fallback=30)
-        self.enable_basic_watermark = self.file.getboolean('BASE.WATERMARKS', 'Enable.Basic.Watermark', fallback=True)
+        self.watermark_mode = self.get_option(
+            "BASE.WATERMARKS", "Watermark.Mode", WatermarkMode
+        )
+        self.watermark_default = self.file.get(
+            "BASE.WATERMARKS", "Default.Watermark", fallback="WOTC"
+        )
+        self.watermark_opacity = self.file.getint(
+            "BASE.WATERMARKS", "Watermark.Opacity", fallback=30
+        )
+        self.enable_basic_watermark = self.file.getboolean(
+            "BASE.WATERMARKS", "Enable.Basic.Watermark", fallback=True
+        )
 
         # BASE - TEMPLATES
-        self.exit_early = self.file.getboolean('BASE.TEMPLATES', 'Manual.Edit', fallback=False)
-        self.minimize_photoshop = self.file.getboolean('BASE.TEMPLATES', 'Minimize.Photoshop', fallback=False)
-        self.import_scryfall_scan = self.file.getboolean('BASE.TEMPLATES', 'Import.Scryfall.Scan', fallback=False)
-        self.border_color = self.get_option('BASE.TEMPLATES', 'Border.Color', BorderColor)
+        self.exit_early = self.file.getboolean(
+            "BASE.TEMPLATES", "Manual.Edit", fallback=False
+        )
+        self.minimize_photoshop = self.file.getboolean(
+            "BASE.TEMPLATES", "Minimize.Photoshop", fallback=False
+        )
+        self.import_scryfall_scan = self.file.getboolean(
+            "BASE.TEMPLATES", "Import.Scryfall.Scan", fallback=False
+        )
+        self.border_color = self.get_option(
+            "BASE.TEMPLATES", "Border.Color", BorderColor
+        )
+
+        self.backup_template = self.file.getboolean(
+            "BASE.TEMPLATES", "Backup.Template", fallback=False
+        )
 
     """
     * Setting Utils
     """
 
-    def get_option(self, section: str, key: str, enum_class: type[StrConstant], default: str | None = None) -> str:
+    def get_option(
+        self,
+        section: str,
+        key: str,
+        enum_class: type[StrConstant],
+        default: str | None = None,
+    ) -> str:
         """Returns the current value of an "options" setting if that option exists in its StrEnum class.
         Otherwise, returns the default value of that StrEnum class.
 
@@ -110,7 +185,37 @@ class AppConfig:
                 return option
         return defa
 
-    def get_setting(self, section: str, key: str, default: str | bool | None = None, is_bool: bool = True):
+    @overload
+    def get_setting(
+        self, section: str, key: str, default: bool, is_bool: Literal[True]
+    ) -> bool: ...
+
+    @overload
+    def get_setting(
+        self, section: str, key: str, default: bool | None, is_bool: Literal[True]
+    ) -> bool | None: ...
+
+    @overload
+    def get_setting(
+        self, section: str, key: str, default: str, is_bool: Literal[False] = False
+    ) -> str: ...
+
+    @overload
+    def get_setting(
+        self,
+        section: str,
+        key: str,
+        default: str | None = None,
+        is_bool: Literal[False] = False,
+    ) -> str | None: ...
+
+    def get_setting(
+        self,
+        section: str,
+        key: str,
+        default: str | bool | None = None,
+        is_bool: bool = False,
+    ) -> str | bool | None:
         """Check if the setting exists and return it. Default will be returned if missing.
 
         Args:
@@ -129,18 +234,63 @@ class AppConfig:
                 return self.file[section].get(key, fallback=default)
         return default
 
+    @overload
+    def get_bool_setting(self, section: str, key: str, default: bool) -> bool: ...
+
+    @overload
+    def get_bool_setting(
+        self, section: str, key: str, default: bool | None = None
+    ) -> bool | None: ...
+
+    def get_bool_setting(
+        self, section: str, key: str, default: bool | None = None
+    ) -> bool | None:
+        return self.get_setting(section, key, default, is_bool=True)
+
+    @overload
+    def get_int_setting(self, section: str, key: str, default: int) -> int: ...
+
+    @overload
+    def get_int_setting(
+        self, section: str, key: str, default: int | None = None
+    ) -> int | None: ...
+
+    def get_int_setting(
+        self, section: str, key: str, default: int | None = None
+    ) -> int | None:
+        setting = self.get_setting(section, key, None)
+        if setting is not None:
+            return int(setting)
+        return default
+
+    @overload
+    def get_float_setting(self, section: str, key: str, default: float) -> float: ...
+
+    @overload
+    def get_float_setting(
+        self, section: str, key: str, default: float | None = None
+    ) -> float | None: ...
+
+    def get_float_setting(
+        self, section: str, key: str, default: float | None = None
+    ) -> float | None:
+        setting = self.get_setting(section, key, None)
+        if setting is not None:
+            return float(setting)
+        return default
+
     """
     * Load ConfigParser Object
     """
 
-    def load(self, config: Optional[ConfigManager] = None) -> None:
+    def load(self, config: ConfigManager | None = None) -> None:
         """Reload the config file and define new values
 
         Args:
             config: ConfigManager to load from if provided, otherwise use app-wide configuration.
         """
         # Invalidate file cache
-        if hasattr(self, 'file'):
+        if hasattr(self, "file"):
             del self.file
 
         # Load provided or load fresh

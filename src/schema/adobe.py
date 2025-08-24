@@ -1,11 +1,13 @@
 """
 * Schema: Photoshop
 """
+
 # Standard Library Imports
-from typing import Union, Literal
+from typing import Literal
 
 # Third Party Imports
-from omnitils.schema import ArbitrarySchema, Schema
+from omnitils.schema import ArbitrarySchema
+from pydantic import BaseModel
 
 # Local Imports
 from src.schema.colors import ColorObject, GradientColor
@@ -15,8 +17,9 @@ from src.schema.colors import ColorObject, GradientColor
 """
 
 
-class LayerDimensions(Schema):
+class LayerDimensions(BaseModel):
     """Calculated layer dimension info for a layer."""
+
     width: int
     height: int
     center_x: int
@@ -65,9 +68,10 @@ GradientMethod = Literal["perceptual", "linear", "classic", "smooth", "stripes"]
 
 class EffectBevel(ArbitrarySchema):
     """Layer Effect: Bevel"""
-    highlight_color: ColorObject = [255, 255, 255]
+
+    highlight_color: ColorObject = (255, 255, 255)
     highlight_opacity: float | int = 70
-    shadow_color: ColorObject = [0, 0, 0]
+    shadow_color: ColorObject = (0, 0, 0)
     shadow_opacity: float | int = 72
     global_light: bool = False
     rotation: float | int = 45
@@ -79,13 +83,15 @@ class EffectBevel(ArbitrarySchema):
 
 class EffectColorOverlay(ArbitrarySchema):
     """Layer Effect: Color Overlay"""
-    color: ColorObject = [0, 0, 0]
+
+    color: ColorObject = (0, 0, 0)
     opacity: float | int = 100
 
 
 class EffectDropShadow(ArbitrarySchema):
     """Layer Effect: Drop Shadow"""
-    color: ColorObject = [0, 0, 0]
+
+    color: ColorObject = (0, 0, 0)
     opacity: float | int = 100
     rotation: float | int = 45
     distance: float | int = 10
@@ -96,6 +102,7 @@ class EffectDropShadow(ArbitrarySchema):
 
 class EffectGradientOverlay(ArbitrarySchema):
     """Layer Effect: Drop Shadow"""
+
     colors: list[GradientColor] = []
     blend_mode: BlendMode = "normal"
     dither: bool = False
@@ -108,17 +115,20 @@ class EffectGradientOverlay(ArbitrarySchema):
 
 class EffectStroke(ArbitrarySchema):
     """Layer Effect: Stroke"""
-    color: ColorObject = [0, 0, 0]
+
+    color: ColorObject = (0, 0, 0)
     weight: int | float = 6
     opacity: int | float = 100
-    style: Literal['in', 'insetFrame', 'out', 'outsetFrame', 'center', 'centeredFrame'] = 'out'
+    style: Literal[
+        "in", "insetFrame", "out", "outsetFrame", "center", "centeredFrame"
+    ] = "out"
 
 
 # Type: Any layer effect
-LayerEffects = Union[
-    EffectBevel,
-    EffectColorOverlay,
-    EffectDropShadow,
-    EffectGradientOverlay,
-    EffectStroke
-]
+LayerEffects = (
+    EffectBevel
+    | EffectColorOverlay
+    | EffectDropShadow
+    | EffectGradientOverlay
+    | EffectStroke
+)

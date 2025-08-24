@@ -6,21 +6,24 @@ from _ctypes import COMError, ArgumentError
 from contextlib import suppress
 from ctypes import c_uint32
 from functools import cache, cached_property
-from typing import Union, Any, Optional, TypedDict, Callable
+from typing import ParamSpec, TypeVar, Any, TypedDict
+from collections.abc import Callable
 
 # Third Party
-from comtypes.client.lazybind import Dispatch
 from packaging.version import parse
 from photoshop.api import (
     ActionDescriptor,
     ActionReference,
     Application,
     DialogModes,
+    ElementPlacement,
     PhotoshopPythonAPIError,
+    TypeUnits,
     Units)
 from photoshop.api._artlayer import ArtLayer
 from photoshop.api._core import Photoshop
 from photoshop.api._document import Document
+from photoshop.api._layer import Layer
 from photoshop.api._layerSet import LayerSet
 from win32api import FormatMessage
 
@@ -31,14 +34,16 @@ from src.utils.windows import WindowState, get_window_handle_by_process_file_pat
 """
 * Types & Definitions
 """
+T = TypeVar("T")
+P = ParamSpec("P")
 
 # Common Layer Objects
-LayerContainer = LayerSet, Document, Dispatch
-LayerObject = LayerSet, ArtLayer, Dispatch
+LayerContainer = LayerSet, Document
+LayerObject = LayerSet, ArtLayer
 
 # Common Layer Types
-LayerContainerTypes = Union[LayerSet, Document, Dispatch]
-LayerObjectTypes = Union[ArtLayer, LayerSet, Dispatch]
+LayerContainerTypes = LayerSet | Document
+LayerObjectTypes = ArtLayer | LayerSet
 
 # Common Photoshop Exceptions
 PS_EXCEPTIONS = (
@@ -87,20 +92,19 @@ PS_ERROR_CODES: dict[int, str] = {
 
 
 # Layer bounds: left, top, right, bottom
-LayerBounds = tuple[int, int, int, int]
+LayerBounds = tuple[float, float, float, float]
 
 
 class LayerDimensions(TypedDict):
     """Calculated layer dimension info for a layer."""
-    width: int
-    height: int
-    center_x: int
-    center_y: int
-    left: int
-    right: int
-    top: int
-    bottom: int
-
+    width: float
+    height: float
+    center_x: float
+    center_y: float
+    left: float
+    right: float
+    top: float
+    bottom: float
 
 """
 * Util Classes
@@ -110,7 +114,7 @@ class LayerDimensions(TypedDict):
 class ApplicationHandler(Application):
     """Wrapper for the Photoshop Application class."""
 
-    def __init__(self, env: Optional[AppEnvironment] = None):
+    def __init__(self, env: AppEnvironment | None = None):
         version = env.PS_VERSION if env else None
         super().__init__(version=version)
         self._env = env
@@ -118,7 +122,7 @@ class ApplicationHandler(Application):
         # Set error dialog state
         with suppress(Exception):
             self.displayDialogs = DialogModes.DisplayErrorDialogs if (
-                env.PS_ERROR_DIALOG
+                env and env.PS_ERROR_DIALOG
             ) else DialogModes.DisplayNoDialogs
 
     """
@@ -126,7 +130,7 @@ class ApplicationHandler(Application):
     """
 
     @cached_property
-    def _env(self) -> Optional[AppEnvironment]:
+    def _env(self) -> AppEnvironment | None:
         """AppEnvironment: Global app environment object."""
         return
 
@@ -154,7 +158,7 @@ class PhotoshopHandler(ApplicationHandler):
             )
         return self._window_handle
 
-    def __new__(cls, env: Optional[Any] = None) -> 'PhotoshopHandler':
+    def __new__(cls, env: Any | None = None) -> 'PhotoshopHandler':
         """Always return the same Photoshop Application instance on successive calls.
 
         Args:
@@ -182,9 +186,9 @@ class PhotoshopHandler(ApplicationHandler):
         if not self.is_running():
             try:
                 # Load Photoshop and default preferences
-                super(PhotoshopHandler, self).__init__(env=self._env)
+                super().__init__(env=self._env)
                 self.preferences.rulerUnits = Units.Pixels
-                self.preferences.typeUnits = Units.Points
+                self.preferences.typeUnits = TypeUnits.TypePoints
             except Exception as e:
                 # Photoshop is either busy or unresponsive
                 return OSError(get_photoshop_error_message(e))
@@ -205,8 +209,8 @@ class PhotoshopHandler(ApplicationHandler):
     def is_running(cls) -> bool:
         """Check if the current Photoshop Application instance is still valid."""
         with suppress(Exception):
-            _ = cls._instance.version
-            return True
+            if cls._instance and cls._instance.version:
+                return True
         return False
 
     """
@@ -225,12 +229,6 @@ class PhotoshopHandler(ApplicationHandler):
         """
         return super().charIDToTypeID(index)
 
-    @cache
-    def CharIDToTypeID(self, index: str) -> int:
-        """Uppercase redirect for charIDToTypeID."""
-        return self.charIDToTypeID(index)
-
-    @cache
     def cID(self, index: str) -> int:
         """Shorthand redirect for charIDToTypeID."""
         return self.charIDToTypeID(index)
@@ -247,7 +245,6 @@ class PhotoshopHandler(ApplicationHandler):
         """
         return super().typeIDToCharID(index)
 
-    @cache
     def t2c(self, index: int) -> str:
         """Shorthand redirect for typeIDToCharID."""
         return self.typeIDToCharID(index)
@@ -268,12 +265,6 @@ class PhotoshopHandler(ApplicationHandler):
         """
         return super().stringIDToTypeID(index)
 
-    @cache
-    def StringIDToTypeID(self, index: str) -> int:
-        """Uppercase redirect for stringIDTotypeID."""
-        return self.stringIDToTypeID(index)
-
-    @cache
     def sID(self, index: str) -> int:
         """Shorthand redirect for stringIDToTypeID."""
         return self.stringIDToTypeID(index)
@@ -290,7 +281,6 @@ class PhotoshopHandler(ApplicationHandler):
         """
         return super().typeIDToStringID(index)
 
-    @cache
     def t2s(self, index: int) -> str:
         """Shorthand redirect for typeIDToStringID."""
         return self.typeIDToStringID(index)
@@ -330,10 +320,11 @@ class PhotoshopHandler(ApplicationHandler):
     """
 
     def executeAction(
-        self, event_id: int,
-        descriptor: ActionDescriptor,
-        dialogs: DialogModes = DialogModes.DisplayNoDialogs
-    ) -> Any:
+        self,
+        event_id: int,
+        descriptor: ActionDescriptor | None = None,
+        display_dialogs: DialogModes = DialogModes.DisplayNoDialogs
+    ) -> ActionDescriptor:
         """Middleware to allow all dialogs when an error occurs upon calling executeAction in development mode.
 
         Args:
@@ -347,15 +338,7 @@ class PhotoshopHandler(ApplicationHandler):
         if self.is_error_dialog_enabled():
             # Allow error dialogs if enabled in the app environment
             return super().executeAction(event_id, descriptor, DialogModes.DisplayErrorDialogs)
-        return super().executeAction(event_id, descriptor, dialogs)
-
-    def ExecuteAction(
-            self, event_id: int,
-            descriptor: ActionDescriptor,
-            dialogs: DialogModes = DialogModes.DisplayNoDialogs
-    ) -> Any:
-        """Utility definition rerouting to original `executeAction`."""
-        self.executeAction(event_id, descriptor, dialogs)
+        return super().executeAction(event_id, descriptor, display_dialogs)
 
     """
     * Version Checks
@@ -391,7 +374,7 @@ class PhotoshopHandler(ApplicationHandler):
     """
 
     @cache
-    def scale_by_dpi(self, value: Union[int, float]) -> int:
+    def scale_by_dpi(self, value: int | float) -> int:
         """Scales a value by comparing document DPI to ideal DPI.
 
         Args:
@@ -407,7 +390,7 @@ class ReferenceLayer(ArtLayer):
     """A static ArtLayer whose properties such as width or height are not going to change. Most often
     used as a reference to position or size other layers."""
 
-    def __init__(self, parent: Any = None, app: PhotoshopHandler = None):
+    def __init__(self, parent: Any = None, app: PhotoshopHandler | None = None):
         self._global_app = app if app else PhotoshopHandler()
         super().__init__(parent=parent)
 
@@ -415,7 +398,11 @@ class ReferenceLayer(ArtLayer):
     * API Methods
     """
 
-    def duplicate(self, relativeObject=None, insertionLocation=None):
+    def duplicate(
+            self,
+            relativeObject: Layer | None = None,
+            insertionLocation: ElementPlacement | None = None
+        ) -> ArtLayer:
         """Duplicates the layer and returns it as a `ReferenceLayer` object."""
         return ReferenceLayer(self.app.duplicate(relativeObject, insertionLocation))
 
@@ -445,7 +432,7 @@ class ReferenceLayer(ArtLayer):
         return self.app.id
 
     @cached_property
-    def action_getter(self) -> ActionReference:
+    def action_getter(self) -> ActionDescriptor:
         """Gets action descriptor info object for this layer.
 
         Returns:
@@ -514,7 +501,7 @@ class ReferenceLayer(ArtLayer):
     """
 
     @staticmethod
-    def get_dimensions_from_bounds(bounds) -> LayerDimensions:
+    def get_dimensions_from_bounds(bounds: tuple[float,float,float,float]) -> LayerDimensions:
         """Compute width and height based on a set of bounds given.
 
         Args:
@@ -539,7 +526,7 @@ class ReferenceLayer(ArtLayer):
 """
 
 
-def try_photoshop(func) -> Callable:
+def try_photoshop(func: Callable[P, T]) -> Callable[P, T | None]:
     """Decorator to handle trying to run a Photoshop action but allowing exceptions to fail silently.
 
     Args:
@@ -548,10 +535,9 @@ def try_photoshop(func) -> Callable:
     Returns:
         The wrapped function.
     """
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         try:
-            result = func(self, *args, **kwargs)
-            return result
+            return func(*args, **kwargs)
         except PS_EXCEPTIONS:
             return
     return wrapper

@@ -2,6 +2,7 @@
 * Load Global Application State
 """
 # Standard Library Imports
+from pathlib import Path
 import sys
 
 # Third Party Imports
@@ -9,7 +10,6 @@ from dynaconf import Validator
 from omnitils.files import get_project_version
 
 # Local Imports
-from .console import TerminalConsole
 from ._config import AppConfig
 from ._loader import get_all_plugins, get_all_templates, get_template_map, get_template_map_defaults
 from ._state import AppConstants, AppEnvironment, PATH
@@ -18,6 +18,12 @@ from src.utils.adobe import PhotoshopHandler
 """
 * Globally Loaded Objects
 """
+
+def _get_proj_version(path: Path) -> str:
+    try:
+        return get_project_version(path)
+    except Exception:
+        return "0.0.0"
 
 # Global environment object (dynaconf)
 ENV = AppEnvironment(
@@ -31,7 +37,7 @@ ENV = AppEnvironment(
         Validator('HEADLESS', cast=bool, default=False),
         Validator('DEV_MODE', cast=bool, default=bool(not hasattr(sys, '_MEIPASS'))),
         Validator('TEST_MODE', cast=bool, default=False),
-        Validator('VERSION', cast=str, default=get_project_version(PATH.PROJECT_FILE)),
+        Validator('VERSION', cast=str, default=_get_proj_version(PATH.PROJECT_FILE)),
         Validator('FORCE_RELOAD', cast=bool, default=False)
     ],
     apply_default_on_none=True
@@ -50,7 +56,7 @@ APP = PhotoshopHandler(env=ENV)
 if not ENV.HEADLESS:
     from src.gui.console import GUIConsole as Console
 else:
-    Console = TerminalConsole
+    from .console import TerminalConsole as Console
 CONSOLE = Console(cfg=CFG, env=ENV, app=APP)
 
 # Global plugins and templates

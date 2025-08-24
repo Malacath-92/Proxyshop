@@ -4,7 +4,6 @@
 # Standard Library Imports
 import os
 from pathlib import Path
-from typing import Optional
 from functools import cached_property
 
 # Kivy Imports
@@ -127,7 +126,7 @@ class TemplateList(BoxLayout, GlobalAccess):
         for name in self.templates['names']:
 
             # Get details for each type
-            templates: dict[str, Optional[type[TemplateDetails]]] = {
+            templates: dict[str, type[TemplateDetails] | None] = {
                 t: self.templates['map'][t].get(name) for t in self.types}
 
             # Is template installed?
@@ -271,7 +270,7 @@ class TemplateResetDefaultButton(HoverButton, GlobalAccess):
 
     async def reset_default(self) -> None:
         """Removes the INI config file containing customized settings for a specific template class."""
-        _file, removed = self.parent.config.template_path_ini, False
+        _file = self.parent.config.template_path_ini
         if _file and _file.is_file():
             try:
                 os.remove(_file)

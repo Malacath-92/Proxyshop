@@ -1,8 +1,6 @@
 """
 * CLI Commands: Build
 """
-# Standard Library
-from typing import Optional
 
 # Third party imports
 import click
@@ -21,7 +19,7 @@ from src.utils.build import build_release
 @click.option('-B', '--beta', is_flag=True, default=False, help="Build app as a Beta release.")
 @click.option('-C', '--console', is_flag=True, default=False, help="Build app with console enabled.")
 @click.option('-R', '--raw', is_flag=True, default=False, help="Build app without creating zip release archive.")
-def build_app(version: Optional[str] = None, beta: bool = False, console: bool = False, raw: bool = False) -> None:
+def build_app(version: str | None = None, beta: bool = False, console: bool = False, raw: bool = False) -> None:
     """Build Proxyshop as an executable release.
 
     Args:
@@ -41,9 +39,7 @@ def build_app(version: Optional[str] = None, beta: bool = False, console: bool =
 @click.group(
     name='build',
     help='Command utilities for building and managing release files.',
-    commands=dict(
-        app=build_release
-    )
+    commands={"app": build_app},
 )
 def build_cli() -> None:
     """App build tools CLI."""

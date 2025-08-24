@@ -2,10 +2,9 @@
 * Helpers: PS Object Descriptors
 """
 # Standard Library Imports
-from typing import Union
 
 # Third Party Imports
-from photoshop.api import DialogModes, ActionReference
+from photoshop.api import ActionDescriptor, DialogModes, ActionReference
 from photoshop.api._artlayer import ArtLayer
 from photoshop.api._layerSet import LayerSet
 
@@ -21,7 +20,7 @@ NO_DIALOG = DialogModes.DisplayNoDialogs
 """
 
 
-def get_layer_action_ref(layer: Union[ArtLayer, LayerSet]) -> ActionReference:
+def get_layer_action_descriptor(layer: ArtLayer | LayerSet) -> ActionDescriptor:
     """Gets action descriptor info object using layer as a reference.
 
     Args:

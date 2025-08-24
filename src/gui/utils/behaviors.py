@@ -11,7 +11,7 @@ from kivy.properties import BooleanProperty, ObjectProperty
 """
 
 
-class HoverBehavior(object):
+class HoverBehavior:
     """Utility modifier class which adds hover behavior to layout elements.
 
     Events:
@@ -25,7 +25,7 @@ class HoverBehavior(object):
         self.register_event_type('on_enter')
         self.register_event_type('on_leave')
         Window.bind(mouse_pos=self.on_mouse_pos)
-        super(HoverBehavior, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def on_mouse_pos(self, *args):
         if not self.get_root_window():

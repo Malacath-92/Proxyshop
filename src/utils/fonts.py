@@ -8,18 +8,20 @@ from contextlib import suppress
 from ctypes import wintypes
 import os.path as osp
 import re
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 # Third Party Imports
+from photoshop.api._document import Document
 from photoshop.api.enumerations import LayerKind
+from photoshop.api._layerSet import LayerSet
 from fontTools.ttLib import TTFont, TTLibError
 from packaging.version import parse
 
 # Local Imports
-from src.utils.adobe import LayerContainer, PhotoshopHandler, PS_EXCEPTIONS
+from src.utils.adobe import PhotoshopHandler, PS_EXCEPTIONS
 
 # Precompile font version pattern
-REG_FONT_VER: re.Pattern = re.compile(r"\b(\d+\.\d+)\b")
+REG_FONT_VER: re.Pattern[str] = re.compile(r"\b(\d+\.\d+)\b")
 
 """
 * Types
@@ -28,8 +30,8 @@ REG_FONT_VER: re.Pattern = re.compile(r"\b(\d+\.\d+)\b")
 
 class FontDetails(TypedDict):
     """Font name and current version."""
-    name: Optional[str]
-    version: Optional[str]
+    name: str | None
+    version: str | None
 
 
 """
@@ -105,19 +107,22 @@ def get_ps_font_dict(ps_app: PhotoshopHandler) -> dict[str, str]:
     Returns:
         Dictionary with postScriptName as key, display name as value.
     """
-    fonts = {}
+    fonts: dict[str,str] = {}
     for f in ps_app.fonts:
-        with suppress(PS_EXCEPTIONS):
+        with suppress(*PS_EXCEPTIONS):
             fonts[f.name] = f.postScriptName
     return fonts
 
+class FontInfo(TypedDict):
+    name: str | None
+    count: int
 
 def get_document_fonts(
     ps_app: PhotoshopHandler,
-    container: Optional[type[LayerContainer]] = None,
-    fonts: Optional[dict] = None,
-    ps_fonts: Optional[dict] = None
-) -> dict:
+    container: LayerSet | Document | None = None,
+    fonts: dict[str, FontInfo] | None = None,
+    ps_fonts: dict[str, str] | None = None
+) -> dict[str,FontInfo]:
     """Get a list of all fonts used in a given Photoshop Document or LayerSet.
 
     Args:
@@ -161,7 +166,7 @@ def get_document_fonts(
 """
 
 
-def get_font_details(path: str) -> Optional[tuple[str, FontDetails]]:
+def get_font_details(path: str) -> tuple[str, FontDetails] | None:
     """Gets the font name and postscript name for a given font file.
 
     Args:
@@ -170,7 +175,7 @@ def get_font_details(path: str) -> Optional[tuple[str, FontDetails]]:
     Returns:
         Tuple containing name and postscript name.
     """
-    with suppress(PS_EXCEPTIONS, TTLibError):
+    with suppress(*PS_EXCEPTIONS, TTLibError):
         with TTFont(path) as font:
             font_name = font['name'].getName(4, 3, 1, 1033).toUnicode()
             font_postscript = font['name'].getDebugName(6)
@@ -220,7 +225,7 @@ def get_installed_fonts_dict() -> dict[str, FontDetails]:
 
 def get_outdated_fonts(
     fonts: dict[str, FontDetails],
-    missing: Optional[dict[str, FontDetails]] = None
+    missing: dict[str, FontDetails] | None = None
 ) -> dict[str, FontDetails]:
     """Compares the version of each font given against installed fonts.
 
@@ -240,13 +245,21 @@ def get_outdated_fonts(
     # Check fonts for any outdated
     for name, data in fonts.items():
         if name in installed and installed[name].get('version'):
-            if parse(installed[name]['version']) < parse(data['version']):
+            version = data['version']
+            installed_version = installed[name]['version']
+            if version and installed_version and parse(installed_version) < parse(version):
                 outdated[name] = data
 
     # Check missing fonts to see if found in installed dict, if so check for version change
     for k in list(missing.keys()):
         if k in installed and installed[k].get('version'):
-            if parse(installed[k]['version']) < parse(missing[k]['version']):
+            installed_version = installed[k]['version']
+            missing_version = missing[k]['version']
+            if (
+                installed_version
+                and missing_version
+                and parse(installed_version) < parse(missing_version)
+            ):
                 outdated[k] = missing[k]
             del missing[k]
 

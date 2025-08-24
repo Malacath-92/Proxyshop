@@ -2,13 +2,14 @@
 * Frame Logic Module
 """
 # Standard Library Imports
-from functools import cached_property, cache
-from typing import Union, Iterable
+from collections.abc import Iterable, Iterator
+from functools import cache, cached_property
+from typing import Any
 
 # Local Imports
 from src.cards import FrameDetails
-from src.enums.mtg import Rarity
 from src.enums.layers import LAYERS
+from src.enums.mtg import Rarity
 
 """
 * Planned Utility Classes
@@ -35,9 +36,8 @@ class RulesText:
         self._text = text
         self._lines = [RulesTextLine(n) for n in text.split('\n')]
 
-    def __iter__(self):
-        for line in self._lines:
-            yield line
+    def __iter__(self) -> Iterator[RulesTextLine]:
+        yield from self._lines
 
 
 """
@@ -148,7 +148,7 @@ def contains_frame_colors(text: str) -> bool:
     return False
 
 
-def get_ordered_colors(text: Union[str, Iterable]) -> str:
+def get_ordered_colors(text: str | Iterable[str]) -> str:
     """Takes in a string of letters representing color identity and puts them in the MTG
     accurate letter order.
 
@@ -161,7 +161,7 @@ def get_ordered_colors(text: Union[str, Iterable]) -> str:
     # Validate the input
     if not text:
         return ''
-    if isinstance(text, Iterable):
+    if not isinstance(text, str):
         text = ''.join(text)
 
     # Match an ordered color
@@ -227,7 +227,7 @@ def get_color_identity_nonland(
     return get_ordered_colors(get_mana_cost_colors(mana_cost))
 
 
-def check_hybrid_color_card(color_identity: Union[str, list[str]], mana_cost: str, is_dfc: bool) -> bool:
+def check_hybrid_color_card(color_identity: str | list[str], mana_cost: str, is_dfc: bool) -> bool:
     """Check a number of inputs to see if this card is:
         - A card with only hybrid Mana symbols
         - Only 2 colors represented
@@ -255,7 +255,7 @@ def check_hybrid_color_card(color_identity: Union[str, list[str]], mana_cost: st
     return False
 
 
-def check_hybrid_mana_cost(color_identity: Union[str, list[str]], mana_cost: str) -> bool:
+def check_hybrid_mana_cost(color_identity: str | list[str], mana_cost: str) -> bool:
     """More simplified hybrid mana test for isolated mana cases e.g. Adventure spells.
 
     Args:
@@ -277,7 +277,7 @@ def check_hybrid_mana_cost(color_identity: Union[str, list[str]], mana_cost: str
 """
 
 
-def get_frame_details(card: dict) -> FrameDetails:
+def get_frame_details(card: dict[str,Any]) -> FrameDetails:
     """Figure out which layers to use for pinlines, background, twins and define the color identity.
     Pass the card to an appropriate function based on card type.
 
@@ -292,7 +292,7 @@ def get_frame_details(card: dict) -> FrameDetails:
     return get_frame_details_nonland(card)
 
 
-def get_frame_details_land(card: dict) -> FrameDetails:
+def get_frame_details_land(card: dict[str,Any]) -> FrameDetails:
     """Card is a Land card, must check a variety of cases to identify the appropriate color identity.
 
     Args:
@@ -450,7 +450,7 @@ def get_frame_details_land(card: dict) -> FrameDetails:
     return result
 
 
-def get_frame_details_nonland(card: dict) -> FrameDetails:
+def get_frame_details_nonland(card: dict[str,Any]) -> FrameDetails:
     """Get frame details related to a Non-Land card. Must discern the frame color identity,
     for example Noble Hierarch's color identity is [W, U, G] on Scryfall, but the frame is Green.
 
@@ -560,7 +560,7 @@ def get_frame_details_nonland(card: dict) -> FrameDetails:
 """
 
 
-def get_special_rarity(rarity: str, card: dict) -> str:
+def get_special_rarity(rarity: str, card: dict[str,Any]) -> str:
     """Control for special rarities.
 
     Args:
@@ -575,7 +575,7 @@ def get_special_rarity(rarity: str, card: dict) -> str:
         if card.get('frame') == '1997':
             return Rarity.T
         # Championship cards
-        if 'Champion' in card.get('set_name'):
+        if 'Champion' in card.get('set_name', ''):
             return Rarity.M
         # Masterpiece
         if card.get('set_type') == 'masterpiece':

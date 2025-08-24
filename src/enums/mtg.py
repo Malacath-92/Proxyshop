@@ -116,10 +116,10 @@ layout_map_category: dict[LayoutCategory, list[LayoutType]] = {
 }
 
 """Maps Layout types to their equivalent Layout category."""
-layout_map_types = {
-    raw: named for named, raw in sum([
-        [(k, n) for n in names] for k, names in layout_map_category.items()
-    ], [])
+layout_map_types: dict[str,LayoutCategory] = {
+    raw: named for named, raw in (
+        (k, n) for k, names in layout_map_category.items() for n in names
+    )
 }
 
 """Maps Layout types to a display formatted Layout category (with Back or Front)."""
@@ -358,31 +358,31 @@ class CardTextPatterns:
     """Defined card data regex patterns."""
 
     # Rules Text - Special Card Types
-    LEVELER: re.Pattern = re.compile(r"(.*?)\nLEVEL (\d*-\d*)\n(\d*/\d*)\n(.*?)\nLEVEL (\d*\+)\n(\d*/\d*)\n(.*?)$")
-    PROTOTYPE: re.Pattern = re.compile(r"Prototype (.+) [—\-] ([0-9]{0,2}/[0-9]{0,2}) \((.+)\)")
-    PLANESWALKER: re.Pattern = re.compile(r"(^[^:]*$|^.*:.*$)", re.MULTILINE)
-    CLASS: re.Pattern = re.compile(r"(.+?): Level (\d)\n(.+)")
+    LEVELER: re.Pattern[str] = re.compile(r"(.*?)\nLEVEL (\d*-\d*)\n(\d*/\d*)\n(.*?)\nLEVEL (\d*\+)\n(\d*/\d*)\n(.*?)$")
+    PROTOTYPE: re.Pattern[str] = re.compile(r"Prototype (.+) [—\-] ([0-9]{0,2}/[0-9]{0,2}) \((.+)\)")
+    PLANESWALKER: re.Pattern[str] = re.compile(r"(^[^:]*$|^.*:.*$)", re.MULTILINE)
+    CLASS: re.Pattern[str] = re.compile(r"(.+?): Level (\d)\n(.+)")
 
     # Filename - Card Art
-    PATH_ARTIST: re.Pattern = re.compile(r"\(+(.*?)\)")
-    PATH_SPLIT: re.Pattern = re.compile(r"[\[({$]")
-    PATH_SET: re.Pattern = re.compile(r"\[(.*)]")
-    PATH_NUM: re.Pattern = re.compile(r"\{(.*)}")
-    PATH_CONDITION: re.Pattern = re.compile(r'<([^>]*)>')
+    PATH_ARTIST: re.Pattern[str] = re.compile(r"\(+(.*?)\)")
+    PATH_SPLIT: re.Pattern[str] = re.compile(r"[\[({$]")
+    PATH_SET: re.Pattern[str] = re.compile(r"\[(.*)]")
+    PATH_NUM: re.Pattern[str] = re.compile(r"\{(.*)}")
+    PATH_CONDITION: re.Pattern[str] = re.compile(r'<([^>]*)>')
 
     # Mana - Symbols
-    SYMBOL: re.Pattern = re.compile(r"(\{.*?})")
-    MANA_NORMAL: re.Pattern = re.compile(r"{([WUBRG])}")
-    MANA_PHYREXIAN: re.Pattern = re.compile(r"{([WUBRG])/P}")
-    MANA_HYBRID: re.Pattern = re.compile(r"{([2WUBRG])/([WUBRG])}")
-    MANA_PHYREXIAN_HYBRID: re.Pattern = re.compile(r"{([WUBRG])/([WUBRG])/P}")
+    SYMBOL: re.Pattern[str] = re.compile(r"(\{.*?})")
+    MANA_NORMAL: re.Pattern[str] = re.compile(r"{([WUBRG])}")
+    MANA_PHYREXIAN: re.Pattern[str] = re.compile(r"{([WUBRG])/P}")
+    MANA_HYBRID: re.Pattern[str] = re.compile(r"{([2WUBRG])/([WUBRG])}")
+    MANA_PHYREXIAN_HYBRID: re.Pattern[str] = re.compile(r"{([WUBRG])/([WUBRG])/P}")
 
     # Text - Extra Spaces
-    EXTRA_SPACE: re.Pattern = re.compile(r"  +")
+    EXTRA_SPACE: re.Pattern[str] = re.compile(r"  +")
 
     # Text - Reminder
-    TEXT_REMINDER: re.Pattern = re.compile(r"\([^()]*\)")
-    TEXT_REMINDER_ENDING = re.compile(r"[\s\S]*(\([^()]*\))$", )
+    TEXT_REMINDER: re.Pattern[str] = re.compile(r"\([^()]*\)")
+    TEXT_REMINDER_ENDING: re.Pattern[str] = re.compile(r"[\s\S]*(\([^()]*\))$", )
 
     # Text - Italicised Ability
-    TEXT_ABILITY: re.Pattern = re.compile(r"(?:^|\r)+(?:• )*([^\r]+) — ", re.MULTILINE)
+    TEXT_ABILITY: re.Pattern[str] = re.compile(r"(?:^|\r)+(?:• )*([^\r]+) — ", re.MULTILINE)

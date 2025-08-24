@@ -10,10 +10,10 @@ from os import environ
 from pathlib import Path
 import sys
 from threading import Lock
-from typing import Optional, Union, Any
+from typing import TYPE_CHECKING, Any
 
 # Third Party Imports
-from hexproof.hexapi import schema as Hexproof
+from hexproof.hexapi.schema.meta import Meta
 from omnitils.exceptions import return_on_exception
 from omnitils.files import load_data_file, dump_data_file
 from omnitils.metaclass import Singleton
@@ -35,21 +35,24 @@ from src.utils.mtg import get_symbol_colors
 
 # Establish global root, based on frozen executable or Python
 __PATH_CWD__: Path = Path(os.getcwd())
-__PATH_ROOT__: Optional[Path] = Path(sys.executable).parent if (
-    getattr(sys, 'frozen', False)
-) else (Path(__file__).parent.parent if __file__ else __PATH_CWD__)
+__PATH_ROOT__: Path | None = (
+    # Path handling for PyInstalller build
+    Path(sys.executable).parent
+    if (getattr(sys, "frozen", False))
+    # Path handling for regular Python
+    else (Path(__file__).parent.parent if __file__ else __PATH_CWD__)
+)
 
 # Switch to root directory if current directory differs
 if str(__PATH_CWD__) != str(__PATH_ROOT__):
     os.chdir(__PATH_ROOT__)
 
-
 class DefinedPaths:
     """Class for defining reusable named Path objects."""
 
     @classmethod
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
+    def __init_subclass__(cls):
+        super().__init_subclass__()
         cls.ensure_paths()
 
     @classmethod
@@ -135,11 +138,33 @@ environ.setdefault('KIVY_LOG_MODE', 'PYTHON')
 environ.setdefault('KIVY_NO_FILELOG', '1')
 
 
-class AppEnvironment(Dynaconf):
+class CustomDynaconf(Dynaconf):
+    if TYPE_CHECKING:
+        @cached_property
+        def API_GOOGLE(self) -> str: ...
+        @cached_property
+        def API_AMAZON(self) -> str: ...
+        @cached_property
+        def PS_ERROR_DIALOG(self) -> bool: ...
+        @cached_property
+        def PS_VERSION(self) -> str | None: ...
+        @cached_property
+        def HEADLESS(self) -> bool: ...
+        @cached_property
+        def DEV_MODE(self) -> bool: ...
+        @cached_property
+        def TEST_MODE(self) -> bool: ...
+        @cached_property
+        def FORCE_RELOAD(self) -> bool: ...
+        @cached_property
+        def VERSION(self) -> str: ...
+
+
+class AppEnvironment(CustomDynaconf):
     """Tracking and modifying global environment behavior."""
 
     @staticmethod
-    def string_or_none(value: Any) -> Optional[str]:
+    def string_or_none(value: Any) -> str | None:
         """Casts a value as either a string OR None.
 
         Args:
@@ -176,10 +201,10 @@ class AppEnvironment(Dynaconf):
         return super().PS_ERROR_DIALOG
 
     @cached_property
-    def PS_VERSION(self) -> Optional[str]:
+    def PS_VERSION(self) -> str | None:
         """str: Photoshop version to try and load, for use when multiple Photoshop versions are installed."""
-        if super().PS_VERSION not in ['', None]:
-            return super().PS_VERSION
+        if (ver := (super().PS_VERSION)) not in ['', None]:
+            return ver
         return None
 
     """
@@ -228,7 +253,7 @@ class AppEnvironment(Dynaconf):
 class AppConstants:
     """Stores global constants that control app behavior."""
     __metaclass__ = Singleton
-    _changes = set()
+    _changes: set[str] = set()
 
     # Thread locking handlers
     lock_decompress = Lock()
@@ -292,7 +317,7 @@ class AppConstants:
     """
 
     @tracked_prop
-    def watermarks(self) -> dict[str, dict]:
+    def watermarks(self) -> dict[str, dict[str,Any]]:
         """dict[str, dict]: Maps watermark names to defined formatting rules."""
         with suppress():
             # Ensure file exists
@@ -306,13 +331,13 @@ class AppConstants:
     """
 
     @tracked_prop
-    def colors(self) -> dict[str, list[int]]:
+    def colors(self) -> dict[str, tuple[float,float,float]]:
         """dict[str, list[int]]: Named reusable colors."""
         return {
-            'black': [0, 0, 0],
-            'white': [255, 255, 255],
-            'silver': [167, 177, 186],
-            'gold': [166, 135, 75]
+            'black': (0, 0, 0),
+            'white': (255, 255, 255),
+            'silver': (167, 177, 186),
+            'gold': (166, 135, 75)
         }
 
     @tracked_prop
@@ -327,8 +352,8 @@ class AppConstants:
         return {sym: (n, get_symbol_colors(sym, n, self.mana_colors)) for sym, n in self.mana_symbols.items()}
 
     def build_symbol_map(
-            self, colors: Optional[SymbolColorMap] = None,
-            symbols: Optional[dict[str, str]] = None
+            self, colors: SymbolColorMap | None = None,
+            symbols: dict[str, str] | None = None
     ) -> None:
         """Establishes a new `symbol_color_map` using a provided color map and symbol map.
 
@@ -360,7 +385,7 @@ class AppConstants:
         }
 
     @tracked_prop
-    def gradient_locations(self) -> dict[int, list[Union[int, float]]]:
+    def gradient_locations(self) -> dict[int, list[int | float]]:
         """dict[int, list[Union[int, float]]: Maps gradient locations to a number representing the number
             of color splits."""
         return {
@@ -375,7 +400,7 @@ class AppConstants:
     """
 
     @tracked_prop
-    def versions(self) -> dict:
+    def versions(self) -> dict[str,str]:
         """dict[str, str]: Maps version numbers to template file identifiers."""
         with suppress():
             # Ensure file exists
@@ -396,12 +421,12 @@ class AppConstants:
     """
 
     @tracked_prop
-    def set_data(self) -> dict[str, dict]:
+    def set_data(self) -> dict[str, dict[str,dict[str,Any]]]:
         """dict[str, dict]: Returns set data pulled from Hexproof.io mapped to set codes."""
         return self.get_set_data()
 
     @tracked_prop
-    def metadata(self) -> dict[str, Hexproof.Meta]:
+    def metadata(self) -> dict[str, Meta]:
         """dict[str, dict]: Returns data pulled from Hexproof.io mapped to resources."""
         return self.get_meta_data()
 
@@ -442,7 +467,7 @@ class AppConstants:
     """
 
     @return_on_exception({})
-    def get_set_data(self) -> dict[str, dict]:
+    def get_set_data(self) -> dict[str, dict[str,dict[str,Any]]]:
         """dict: Loaded data from the 'set' data file."""
         if not PATH.SRC_DATA_HEXPROOF_SET.is_file():
             dump_data_file({}, PATH.SRC_DATA_HEXPROOF_SET)
@@ -451,12 +476,12 @@ class AppConstants:
         return load_data_file(PATH.SRC_DATA_HEXPROOF_SET)
 
     @return_on_exception({})
-    def get_meta_data(self) -> dict[str, Hexproof.Meta]:
+    def get_meta_data(self) -> dict[str, Meta]:
         """dict: Loaded data from the 'meta' data file."""
         if not PATH.SRC_DATA_HEXPROOF_META.is_file():
             dump_data_file({}, PATH.SRC_DATA_HEXPROOF_META)
 
         # Import watermark library
         return {
-            k: Hexproof.Meta(**v) for k, v in
+            k: Meta(**v) for k, v in
             load_data_file(PATH.SRC_DATA_HEXPROOF_META)}

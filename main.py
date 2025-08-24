@@ -13,8 +13,9 @@ import sys
 def launch_cli():
     """Launch the app in CLI mode."""
 
-    # Enable headless mode, remove cli marker
+    # Enable headless mode
     os.environ['PROXYSHOP_HEADLESS'] = '1'
+    # Remove cli marker
     if 'cli' in sys.argv:
         sys.argv.remove('cli')
 
@@ -28,37 +29,41 @@ def launch_cli():
 def launch_gui():
     """Launch the app in GUI mode."""
 
-    # Local Imports
+    # Disable headless mode
     os.environ['PROXYSHOP_HEADLESS'] = '0'
+
+    # Local Imports
     from src import (
         APP, CFG, CON, CONSOLE, ENV,
         PLUGINS, TEMPLATES, TEMPLATE_MAP, TEMPLATE_DEFAULTS)
     from src.gui._state import register_kv_classes, load_kv_config
     from src.gui.app import ProxyshopGUIApp
+    from src.gui.console import GUIConsole
 
-    # Kivy Imported Last
-    from kivy.resources import resource_add_path
+    if isinstance(CONSOLE, GUIConsole):
+        # Kivy Imported Last
+        from kivy.resources import resource_add_path
 
-    # Kivy packaging for PyInstaller
-    if hasattr(sys, '_MEIPASS'):
-        resource_add_path(os.path.join(sys._MEIPASS))
+        # Kivy packaging for PyInstaller
+        if hasattr(sys, '_MEIPASS'):
+            resource_add_path(os.path.join(sys._MEIPASS))
 
-    # Load KV files and utilities
-    load_kv_config()
-    register_kv_classes()
+        # Load KV files and utilities
+        load_kv_config()
+        register_kv_classes()
 
-    # Run the GUI application
-    ProxyshopGUIApp(
-        app=APP,
-        con=CON,
-        cfg=CFG,
-        env=ENV,
-        console=CONSOLE,
-        plugins=PLUGINS,
-        templates=TEMPLATES,
-        template_map=TEMPLATE_MAP,
-        templates_default=TEMPLATE_DEFAULTS,
-    ).run()
+        # Run the GUI application
+        ProxyshopGUIApp(
+            app=APP,
+            con=CON,
+            cfg=CFG,
+            env=ENV,
+            console=CONSOLE,
+            plugins=PLUGINS,
+            templates=TEMPLATES,
+            template_map=TEMPLATE_MAP,
+            templates_default=TEMPLATE_DEFAULTS,
+        ).run()
 
 
 if __name__ == '__main__':

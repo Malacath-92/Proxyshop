@@ -4,7 +4,6 @@ KIVY SETTINGS POPUPS
 # Standard Library Imports
 from functools import cached_property
 from os import PathLike
-from typing import Union
 
 # Third Party Imports
 import kivy.utils as utils
@@ -144,6 +143,19 @@ class FormattedSettingNumeric(SettingNumeric):
         # all done, open the popup !
         popup.open()
 
+    def _validate(self, instance):
+        # Check float status by using the current input text.
+        # This allows converting between int and float.
+        is_float = '.' in str(self.textinput.text)
+        self._dismiss()
+        try:
+            if is_float:
+                self.value = str(float(self.textinput.text))
+            else:
+                self.value = str(int(self.textinput.text))
+        except ValueError:
+            return
+
 
 class FormattedSettingOptions(SettingOptions):
     """Create custom SettingOptions class to allow Markup in title."""
@@ -189,7 +201,7 @@ class SettingsPopup(ModalView, GlobalAccess):
     """
 
     @staticmethod
-    def get_config(ini_file: Union[str, PathLike]) -> ConfigParser:
+    def get_config(ini_file: str | PathLike) -> ConfigParser:
         config = ConfigParser(allow_no_value=True)
         config.optionxform = str
         config.read(str(ini_file))

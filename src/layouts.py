@@ -4,7 +4,8 @@
 # Standard Library Imports
 from datetime import date, datetime
 import re
-from typing import NotRequired, Optional, Match, TypedDict, Union, Type
+from typing import Any, NotRequired, TypedDict, Union
+from re import Match
 from os import path as osp
 from pathlib import Path
 from functools import cached_property
@@ -42,6 +43,25 @@ class PowerToughness(TypedDict):
     power: str
     toughness: str
 
+
+class ProtoDetails(TypedDict):
+    oracle_text: str
+    mana_cost: str
+    pt: str
+
+class PlaneswalkerAbility(TypedDict):
+    text: str
+    icon: str
+    cost: str
+
+class SagaLine(TypedDict):
+    text: str
+    icons: list[str]
+
+class ClassLine(TypedDict):
+    cost: str | None
+    level: str
+    text: str
 
 """
 * Layout Processing
@@ -98,7 +118,7 @@ def assign_layout(filename: Path) -> "str | CardLayout":
     return msg_error(name_failed, reason="Layout incompatible")
 
 
-def join_dual_card_layouts(layouts: list[Union[str, 'CardLayout']]):
+def join_dual_card_layouts(layouts: list[Union[str, 'CardLayout']]) -> list["str | CardLayout"]:
     """Join any layout objects that are dual sides of the same card, i.e. Split cards.
 
     Args:
@@ -108,19 +128,19 @@ def join_dual_card_layouts(layouts: list[Union[str, 'CardLayout']]):
         List of layouts, with split layouts joined.
     """
     # Check if we have any split cards
-    normal: list[Union[str, CardLayout]] = [
+    normal: list[str | CardLayout] = [
         n for n in layouts
         if isinstance(n, str)
-        or n.card_class != LayoutType.Split]
+        or not isinstance(n, SplitLayout)]
     split: list[SplitLayout] = [
         n for n in layouts
-        if not isinstance(n, str)
-        and n.card_class == LayoutType.Split]
+        if isinstance(n, SplitLayout)]
     if not split:
         return normal
 
     # Join any identical split cards
-    skip, add = [], []
+    skip: list[SplitLayout] = []
+    add: list[SplitLayout] = []
     for card in split:
         if card in skip:
             continue
@@ -129,9 +149,9 @@ def join_dual_card_layouts(layouts: list[Union[str, 'CardLayout']]):
                 continue
             if str(c) == str(card):
                 # Order them according to name position
-                card.art_file = [*card.art_file, *c.art_file] if (
+                card.art_files = [*card.art_files, *c.art_files] if (
                         normalize_str(card.name[0]) == normalize_str(card.file['name'])
-                ) else [*c.art_file, *card.art_file]
+                ) else [*c.art_files, *card.art_files]
                 skip.extend([card, c])
         add.append(card)
     return [*normal, *add]
@@ -144,13 +164,20 @@ def join_dual_card_layouts(layouts: list[Union[str, 'CardLayout']]):
 
 class NormalLayout:
     """Defines unified properties for all cards and serves as the layout for any M15 style typical card."""
-    card_class: str = LayoutType.Normal
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Normal
 
     # Static properties
-    is_transform: bool = False
-    is_mdfc: bool = False
+    @cached_property
+    def is_transform(self) -> bool:
+        return False
+    
+    @cached_property
+    def is_mdfc(self) -> bool:
+        return False
 
-    def __init__(self, scryfall: dict, file: dict):
+    def __init__(self, scryfall: dict[str,Any], file: CardDetails):
 
         # Establish core properties
         self._file = file
@@ -176,7 +203,7 @@ class NormalLayout:
         return self._file
 
     @cached_property
-    def scryfall(self) -> dict:
+    def scryfall(self) -> dict[str,Any]:
         """Card data fetched from Scryfall."""
         return self._scryfall
 
@@ -188,7 +215,7 @@ class NormalLayout:
     @cached_property
     def art_file(self) -> Path:
         """Path: Art image file path."""
-        return self.file['file']
+        return Path(self.file['file'])
 
     @cached_property
     def scryfall_scan(self) -> str:
@@ -205,7 +232,7 @@ class NormalLayout:
         return self.scryfall.get('set', 'MTG').upper()
 
     @cached_property
-    def set_data(self) -> dict:
+    def set_data(self) -> dict[str,Any]:
         """Set data from the current hexproof.io data file."""
         return CON.set_data.get(self.scryfall.get('set', 'mtg').lower(), {})
 
@@ -227,7 +254,7 @@ class NormalLayout:
     """
 
     @cached_property
-    def card(self) -> dict:
+    def card(self) -> dict[str,Any]:
         """Main card data object to pull most relevant data from."""
         if faces := self.scryfall.get('card_faces', []):
             # Card with multiple faces, first index is always front side
@@ -239,15 +266,16 @@ class NormalLayout:
                     break
 
             if not matching_face:
+                face_listing = '\n'.join(f"  - {face['name']}" for face in faces)
                 CONSOLE.update(
                     msg_warn(
                         f"""None of the card faces
-{'\n'.join((f"  - {face['name']}" for face in faces))}
+{face_listing}
 matches the input file's name '{self.input_name}'.
 Defaulting to first face."""
                     )
                 )
-                matching_face = faces[0]
+                return faces[0]
 
             return matching_face
 
@@ -255,7 +283,7 @@ Defaulting to first face."""
         return self.scryfall
 
     @cached_property
-    def first_print(self) -> dict:
+    def first_print(self) -> dict[str,Any]:
         """Card data fetched from Scryfall representing the first print of this card."""
         first = get_cards_oracle(self.scryfall.get('oracle_id', ''))
         return first[0] if first else {}
@@ -310,7 +338,7 @@ Defaulting to first face."""
         return self.file['name']
 
     @cached_property
-    def mana_cost(self) -> Optional[str]:
+    def mana_cost(self) -> str:
         """Scryfall formatted card mana cost."""
         return self.card.get('mana_cost', '')
 
@@ -393,7 +421,7 @@ Defaulting to first face."""
 
     @cached_property
     def color_indicator(self) -> str:
-        """Color indicator identity array, e.g. [W, U]."""
+        """Color indicator identity , e.g. "WU"."""
         return get_ordered_colors(self.card.get('color_indicator', []))
 
     """
@@ -435,14 +463,15 @@ Defaulting to first face."""
         if self.file.get('artist'):
             return self.file['artist']
 
+        artist = self.card.get('artist', 'Unknown')
+        count: set[str] = set()
+
         # Check for duplicate last names
-        artist, count = self.card.get('artist', 'Unknown'), []
-        if '&' in artist:
+        if isinstance(artist, str) and '&' in artist:
             for w in artist.split(' '):
-                if w in count:
-                    count.remove(w)
-                count.append(w)
+                count.add(w)
             return ' '.join(count)
+
         return artist
 
     @cached_property
@@ -453,12 +482,12 @@ Defaulting to first face."""
         return 0
 
     @cached_property
-    def collector_number_raw(self) -> Optional[str]:
+    def collector_number_raw(self) -> str | None:
         """str | None: Card number assigned within release set. Raw string representation, allows non-digits."""
         return self.scryfall.get('collector_number')
 
     @cached_property
-    def card_count(self) -> Optional[int]:
+    def card_count(self) -> int | None:
         """int | None: Number of cards within the card's release set. Only required in 'Normal' Collector Mode."""
 
         # Skip if collector mode doesn't require it or if collector number is bad
@@ -492,7 +521,7 @@ Defaulting to first face."""
     """
 
     @cached_property
-    def symbol_svg(self) -> Optional[Path]:
+    def symbol_svg(self) -> Path | None:
         """SVG path definition for card's expansion symbol."""
 
         # If code is default, perform replacement and check if we have a local asset first
@@ -521,7 +550,7 @@ Defaulting to first face."""
         return
 
     @cached_property
-    def watermark(self) -> Optional[str]:
+    def watermark(self) -> str | None:
         """Name of the card's watermark file that is actually used, if provided."""
         if not self.watermark_svg:
             return
@@ -530,14 +559,14 @@ Defaulting to first face."""
         return self.watermark_svg.stem.lower()
 
     @cached_property
-    def watermark_raw(self) -> Optional[str]:
+    def watermark_raw(self) -> str | None:
         """Name of the card's watermark from raw Scryfall data, if provided."""
         return self.card.get('watermark')
 
     @cached_property
-    def watermark_svg(self) -> Optional[Path]:
+    def watermark_svg(self) -> Path | None:
         """Path to the watermark SVG file, if provided."""
-        def _find_watermark_svg(wm: str) -> Optional[Path]:
+        def _find_watermark_svg(wm: str) -> Path | None:
             """Try to find a watermark SVG asset, allowing for special cases and set code fallbacks.
 
             Args:
@@ -569,7 +598,7 @@ Defaulting to first face."""
             return _find_watermark_svg(CFG.watermark_default)
 
         # WatermarkMode: Automatic
-        path = _find_watermark_svg(self.watermark_raw)
+        path = _find_watermark_svg(self.watermark_raw) if self.watermark_raw else None
         if path or CFG.watermark_mode == WatermarkMode.Automatic:
             return path
 
@@ -577,7 +606,7 @@ Defaulting to first face."""
         return _find_watermark_svg(CFG.watermark_default)
 
     @cached_property
-    def watermark_basic(self) -> Optional[Path]:
+    def watermark_basic(self) -> Path | None:
         """Optional[Path]: Path to basic land watermark, if card is a Basic Land."""
         if not self.is_basic_land:
             return
@@ -742,7 +771,7 @@ Defaulting to first face."""
         return TransformIcons.CONVERT
 
     @cached_property
-    def other_face(self) -> dict:
+    def other_face(self) -> dict[str,Any]:
         """Card data from opposing face if provided."""
         for face in self.scryfall.get('card_faces', []):
             if face.get('name') != self.name_raw:
@@ -750,7 +779,7 @@ Defaulting to first face."""
         return {}
 
     @cached_property
-    def other_face_frame(self) -> Union[FrameDetails, dict]:
+    def other_face_frame(self) -> FrameDetails | dict[str, Any]:
         """Calculated frame information of opposing face, if provided."""
         return get_frame_details(self.other_face) if self.other_face else {}
 
@@ -799,7 +828,7 @@ Defaulting to first face."""
         return self.other_face.get('toughness', '')
 
     @cached_property
-    def other_face_left(self) -> Optional[str]:
+    def other_face_left(self) -> str:
         """Abridged type of the opposing side to display on bottom MDFC bar."""
         return self.other_face_type_line_raw.split(' ')[-1] if self.other_face else ''
 
@@ -822,7 +851,9 @@ Defaulting to first face."""
 
 class MutateLayout(NormalLayout):
     """Mutate card layout introduced in Ikoria: Lair of Behemoths."""
-    card_class: str = LayoutType.Mutate
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Mutate
 
     """
     * Text Info
@@ -850,7 +881,9 @@ class MutateLayout(NormalLayout):
 
 class PrototypeLayout(NormalLayout):
     """Prototype card layout, introduced in The Brothers' War."""
-    card_class: str = LayoutType.Prototype
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Prototype
 
     """
     * Text Info
@@ -865,14 +898,14 @@ class PrototypeLayout(NormalLayout):
     """
 
     @cached_property
-    def proto_details(self) -> dict:
+    def proto_details(self) -> ProtoDetails:
         """Returns dictionary containing prototype data and separated oracle text."""
-        proto_text, rules_text = self.card.get('oracle_text').split("\n", 1)
+        proto_text, rules_text = self.card.get('oracle_text', "\n").split("\n", 1)
         match = CardTextPatterns.PROTOTYPE.match(proto_text)
         return {
             'oracle_text': rules_text,
-            'mana_cost': match[1],
-            'pt': match[2]
+            'mana_cost': match[1] if match else "",
+            'pt': match[2] if match else ""
         }
 
     @cached_property
@@ -897,7 +930,10 @@ class PrototypeLayout(NormalLayout):
 
 class PlaneswalkerLayout(NormalLayout):
     """Planeswalker card layout introduced in Lorwyn block."""
-    card_class: str = LayoutType.Planeswalker
+
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Planeswalker
 
     """
     * Text Info
@@ -934,7 +970,7 @@ class PlaneswalkerLayout(NormalLayout):
         return 3 if len(self.pw_abilities) <= 3 else 4
 
     @cached_property
-    def pw_abilities(self) -> list[dict]:
+    def pw_abilities(self) -> list[PlaneswalkerAbility]:
         """Processes Planeswalker text into listed abilities."""
         lines = CardTextPatterns.PLANESWALKER.findall(self.oracle_text_raw)
         en_lines = lines.copy()
@@ -961,7 +997,7 @@ class PlaneswalkerLayout(NormalLayout):
             lines = new_lines
 
         # Create list of ability dictionaries
-        abilities: list[dict] = []
+        abilities: list[PlaneswalkerAbility] = []
         for i, line in enumerate(lines):
             index = en_lines[i].find(": ")
             abilities.append({
@@ -972,8 +1008,8 @@ class PlaneswalkerLayout(NormalLayout):
             } if 5 > index > 0 else {
                 # Static ability
                 'text': line,
-                'icon': None,
-                'cost': None
+                'icon': "",
+                'cost': ""
             })
         return abilities
 
@@ -981,8 +1017,13 @@ class PlaneswalkerLayout(NormalLayout):
 class PlaneswalkerTransformLayout(PlaneswalkerLayout):
     """Transform version of the Planeswalker card layout introduced in Innistrad block."""
 
+    def __init__(self, scryfall: dict[str, Any], file: CardDetails):
+        super().__init__(scryfall, file)
+
     # Static properties
-    is_transform: bool = True
+    @cached_property
+    def is_transform(self) -> bool:
+        return True
 
     @cached_property
     def card_class(self) -> str:
@@ -994,7 +1035,9 @@ class PlaneswalkerMDFCLayout(PlaneswalkerLayout):
     """MDFC version of the Planeswalker card layout introduced in Kaldheim."""
 
     # Static properties
-    is_mdfc: bool = True
+    @cached_property
+    def is_mdfc(self) -> bool:
+        return True
 
     @cached_property
     def card_class(self) -> str:
@@ -1006,7 +1049,9 @@ class TransformLayout(NormalLayout):
     """Transform card layout, introduced in Innistrad block."""
 
     # Static properties
-    is_transform: bool = True
+    @cached_property
+    def is_transform(self) -> bool:
+        return True
 
     @cached_property
     def card_class(self) -> str:
@@ -1018,7 +1063,9 @@ class ModalDoubleFacedLayout(NormalLayout):
     """Modal Double Faced card layout, introduced in Zendikar Rising."""
 
     # Static properties
-    is_mdfc: bool = True
+    @cached_property
+    def is_mdfc(self) -> bool:
+        return True
 
     @cached_property
     def card_class(self) -> str:
@@ -1041,14 +1088,16 @@ class ModalDoubleFacedLayout(NormalLayout):
 
 class AdventureLayout(NormalLayout):
     """Adventure card layout, introduced in Throne of Eldraine."""
-    card_class: str = LayoutType.Adventure
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Adventure
 
     """
     * Core Data
     """
 
     @cached_property
-    def adventure(self) -> dict:
+    def adventure(self) -> dict[str,Any]:
         """Card object for adventure side."""
         return self.scryfall['card_faces'][1]
 
@@ -1110,14 +1159,16 @@ class AdventureLayout(NormalLayout):
 
 class LevelerLayout(NormalLayout):
     """Leveler card layout, introduced in Rise of the Eldrazi."""
-    card_class: str = LayoutType.Leveler
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Leveler
 
     """
     * Leveler Text
     """
 
     @cached_property
-    def leveler_match(self) -> Optional[Match[str]]:
+    def leveler_match(self) -> Match[str] | None:
         """Unpack leveler text fields from oracle text string."""
         return CardTextPatterns.LEVELER.match(self.oracle_text)
 
@@ -1159,7 +1210,9 @@ class LevelerLayout(NormalLayout):
 
 class SagaLayout(NormalLayout):
     """Saga card layout, introduced in Dominaria."""
-    card_class: str = LayoutType.Saga
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Saga
 
     _chapter_regex = re.compile(r"^[ ,IVXLCDM]+ — ")
 
@@ -1180,11 +1233,11 @@ class SagaLayout(NormalLayout):
     def saga_text(self) -> str:
         """Text comprised of Saga ability lines."""
         return "\n".join(
-            (
+            
                 text
                 for text in self.oracle_text.splitlines()
                 if self._chapter_regex.match(text)
-            )
+            
         )
     
     @cached_property
@@ -1212,9 +1265,9 @@ class SagaLayout(NormalLayout):
         return "" if self._chapter_regex.match(line) else line
 
     @cached_property
-    def saga_lines(self) -> list[dict]:
+    def saga_lines(self) -> list[SagaLine]:
         """Unpack saga text into list of dictionaries containing ability text and icons."""
-        abilities: list[dict] = []
+        abilities: list[SagaLine] = []
         for i, line in enumerate(self.saga_text.split("\n")):
             # Full ability line
             if "—" in line:
@@ -1238,7 +1291,9 @@ class SagaLayout(NormalLayout):
 
 class ClassLayout(NormalLayout):
     """Class card layout, introduced in Adventures in the Forgotten Realms."""
-    card_class: str = LayoutType.Class
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Class
 
     """
     * Class Properties
@@ -1259,12 +1314,12 @@ class ClassLayout(NormalLayout):
         return "" if CFG.remove_reminder else get_line(self.oracle_text, 0)
 
     @cached_property
-    def class_lines(self) -> list[dict]:
+    def class_lines(self) -> list[ClassLine]:
         """Unpack class text into list of dictionaries containing ability levels, cost, and text."""
 
         # Initial class ability
         initial, *lines = self.class_text.split('\n')
-        abilities: list[dict] = [{'text': initial, 'cost': None, 'level': 1}]
+        abilities: list[ClassLine] = [{'text': initial, 'cost': None, 'level': "1"}]
 
         # Add level-up abilities
         for line in ["\n".join(lines[i:i + 2]) for i in range(0, len(lines), 2)]:
@@ -1284,7 +1339,9 @@ class ClassLayout(NormalLayout):
 
 class CaseLayout(NormalLayout):
     """Case card layout, introduced in Murders at Karlov Manor."""
-    card_class: str = LayoutType.Case
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Case
 
     @cached_property
     def case_lines(self) -> list[str]:
@@ -1294,7 +1351,9 @@ class CaseLayout(NormalLayout):
 
 class BattleLayout(TransformLayout):
     """Battle card layout, introduced in March of the Machine."""
-    card_class: str = LayoutType.Battle
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Battle
 
     """
     * Text Info
@@ -1308,23 +1367,53 @@ class BattleLayout(TransformLayout):
 
 class PlanarLayout(NormalLayout):
     """Planar card layout, introduced in Planechase block."""
-    card_class: str = LayoutType.Planar
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Planar
 
 
 class SplitLayout(NormalLayout):
     """Split card layout, introduced in Invasion."""
-    card_class: str = LayoutType.Split
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Split
 
     # Static properties
-    is_nyx: bool = False
-    is_land: bool = False
-    is_basic_land: bool = False
-    is_artifact: bool = False
-    is_creature: bool = False
-    is_legendary: bool = False
-    is_companion: bool = False
-    toughness: str = ''
-    power: str = ''
+    @cached_property
+    def is_nyx(self) -> bool:
+        return False
+
+    @cached_property
+    def is_land(self) -> bool:
+        return False
+
+    @cached_property
+    def is_basic_land(self) -> bool:
+        return False
+
+    @cached_property
+    def is_artifact(self) -> bool:
+        return False
+
+    @cached_property
+    def is_creature(self) -> bool:
+        return False
+
+    @cached_property
+    def is_legendary(self) -> bool:
+        return False
+
+    @cached_property
+    def is_companion(self) -> bool:
+        return False
+
+    @cached_property
+    def toughness(self) -> str:
+        return ""
+
+    @cached_property
+    def power(self) -> str:
+        return ""
 
     def __str__(self):
         return (f"{self.display_name}"
@@ -1350,11 +1439,11 @@ class SplitLayout(NormalLayout):
         return f"{self.names[0]} // {self.names[1]}"
 
     @cached_property
-    def card(self) -> dict:
+    def card(self) -> dict[str,Any]:
         return self.cards[0]
 
     @cached_property
-    def cards(self) -> list[dict]:
+    def cards(self) -> list[dict[str,Any]]:
         """Both side objects."""
         return [*self.scryfall.get('card_faces', [])]
 
@@ -1382,26 +1471,6 @@ class SplitLayout(NormalLayout):
         return self.scryfall.get('image_uris', {}).get('large', '')
 
     """
-    * Collector Info
-    """
-
-    @cached_property
-    def artist(self) -> str:
-        """Card artist name, use Scryfall raw data instead of 'card' data."""
-        if self.file.get('artist'):
-            return self.file['artist']
-
-        # Check for duplicate last names
-        artist, count = self.scryfall.get('artist', 'Unknown'), []
-        if '&' in artist:
-            for w in artist.split(' '):
-                if w in count:
-                    count.remove(w)
-                count.append(w)
-            return ' '.join(count)
-        return artist
-
-    """
     * Symbols
     """
 
@@ -1412,7 +1481,7 @@ class SplitLayout(NormalLayout):
     @cached_property
     def watermarks(self) -> list[str | None]:
         """Name of the card's watermark file that is actually used, if provided."""
-        watermarks: list[Optional[str]] = []
+        watermarks: list[str | None] = []
         for wm in self.watermark_svgs:
             if not wm:
                 watermarks.append(None)
@@ -1438,7 +1507,7 @@ class SplitLayout(NormalLayout):
     @cached_property
     def watermark_svgs(self) -> list[Path | None]:
         """Path to the watermark SVG file, if provided."""
-        def _find_watermark_svg(wm: str) -> Optional[Path]:
+        def _find_watermark_svg(wm: str) -> Path | None:
             """Try to find a watermark SVG asset, allowing for special cases and set code fallbacks.
 
             Args:
@@ -1464,7 +1533,7 @@ class SplitLayout(NormalLayout):
             return get_watermark_svg(wm)
 
         # Find a watermark SVG for each face
-        watermarks = []
+        watermarks: list[Path | None] = []
         for w in self.watermarks_raw:
             if CFG.watermark_mode == WatermarkMode.Disabled:
                 # Disabled Mode
@@ -1478,7 +1547,7 @@ class SplitLayout(NormalLayout):
                 continue
             else:
                 # Automatic Mode
-                path = _find_watermark_svg(w)
+                path = _find_watermark_svg(w) if w else None
                 if path or CFG.watermark_mode == WatermarkMode.Automatic:
                     watermarks.append(path)
                     continue
@@ -1535,7 +1604,7 @@ class SplitLayout(NormalLayout):
     @cached_property
     def oracle_texts(self) -> list[str]:
         """Both side oracle texts."""
-        text = []
+        text: list[str] = []
         for t in [
             c.get('printed_text', c.get('oracle_text', ''))
             if self.is_alt_lang else c.get('oracle_text', '')
@@ -1646,7 +1715,7 @@ class SplitLayout(NormalLayout):
 class TokenLayout(NormalLayout):
     """Token card layout for token game pieces."""
 
-    @property
+    @cached_property
     def display_name(self) -> str:
         """str: Add Token for display on GUI."""
         return f"{self.name} Token"
@@ -1670,7 +1739,7 @@ class TokenLayout(NormalLayout):
         return self.set_data.get('code_parent', super().set).upper()
 
     @cached_property
-    def card_count(self) -> Optional[int]:
+    def card_count(self) -> int | None:
         """Optional[int]: Use token count for token cards."""
 
         # Skip if collector mode doesn't require it or if collector number is bad
@@ -1690,7 +1759,9 @@ class StationDetails(TypedDict):
 class StationLayout(NormalLayout):
     _pt_pattern = re.compile(r"([0-9]+)/([0-9]+)")
 
-    card_class: str = LayoutType.Station
+    @cached_property
+    def card_class(self) -> str:
+        return LayoutType.Station
 
     @cached_property
     def oracle_text_unprocessed(self) -> str:
@@ -1738,30 +1809,30 @@ class StationLayout(NormalLayout):
 """
 
 """All card layout classes."""
-CardLayout = Union[
-    NormalLayout,
-    TransformLayout,
-    ModalDoubleFacedLayout,
-    AdventureLayout,
-    LevelerLayout,
-    SagaLayout,
-    MutateLayout,
-    PrototypeLayout,
-    ClassLayout,
-    SplitLayout,
-    PlanarLayout,
+CardLayout = (
+    NormalLayout|
+    TransformLayout|
+    ModalDoubleFacedLayout|
+    AdventureLayout|
+    LevelerLayout|
+    SagaLayout|
+    MutateLayout|
+    PrototypeLayout|
+    ClassLayout|
+    SplitLayout|
+    PlanarLayout|
     TokenLayout
-]
+)
 
 """Planeswalker card layout classes."""
-PlaneswalkerLayouts = Union[
-    PlaneswalkerLayout,
-    PlaneswalkerTransformLayout,
+PlaneswalkerLayouts = (
+    PlaneswalkerLayout|
+    PlaneswalkerTransformLayout|
     PlaneswalkerMDFCLayout
-]
+)
 
 """Maps Scryfall layout names to their respective layout class."""
-layout_map: dict[str, Type[CardLayout]] = {
+layout_map: dict[str, type[CardLayout]] = {
 
     # Definitions supported by Scryfall natively
     LayoutScryfall.Normal: NormalLayout,

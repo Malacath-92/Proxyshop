@@ -3,7 +3,8 @@
 """
 # Standard Library Imports
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any
+from collections.abc import Callable
 
 # Third Party Imports
 from photoshop.api import (
@@ -36,7 +37,7 @@ NO_DIALOG = DialogModes.DisplayNoDialogs
 """
 
 
-def get_leaf_layers(group: Optional[LayerSet] = None) -> list[ArtLayer]:
+def get_leaf_layers(group: Document | LayerSet | None = None) -> list[ArtLayer]:
     """Utility function to generate a list of leaf layers in a LayerSet or document.
 
     Args:
@@ -52,8 +53,9 @@ def get_leaf_layers(group: Optional[LayerSet] = None) -> list[ArtLayer]:
         layers.extend(get_leaf_layers(g))
     return layers
 
+ArtLayerTree = dict[str, "ArtLayer | ArtLayerTree"]
 
-def get_layer_tree(group: Optional[LayerSet] = None) -> dict[str, Union[ArtLayer, dict[str, ArtLayer]]]:
+def get_layer_tree(group: Document | LayerSet | None = None) -> ArtLayerTree:
     """Composes a dictionary tree of layers in the active document or a specific LayerSet.
 
     Args:
@@ -64,7 +66,7 @@ def get_layer_tree(group: Optional[LayerSet] = None) -> dict[str, Union[ArtLayer
     """
     if not group:
         group = APP.activeDocument
-    layers = {layer.name: layer for layer in group.artLayers}
+    layers: ArtLayerTree = {layer.name: layer for layer in group.artLayers}
     for g in group.layerSets:
         layers[g.name] = get_layer_tree(g)
     return layers
@@ -77,9 +79,9 @@ def get_layer_tree(group: Optional[LayerSet] = None) -> dict[str, Union[ArtLayer
 
 def import_art(
     layer: ArtLayer,
-    path: Union[str, Path],
+    path: str | Path,
     name: str = 'Layer 1',
-    docref: Optional[Document] = None
+    docref: Document | None = None
 ) -> ArtLayer:
     """Imports an art file into the active layer.
 
@@ -97,15 +99,20 @@ def import_art(
     docref.activeLayer = layer
     desc.putPath(sID('target'), str(path))
     APP.executeAction(sID('placeEvent'), desc)
-    docref.activeLayer.name = name
-    return docref.activeLayer
+
+    active_layer = docref.activeLayer
+    if not isinstance(active_layer, ArtLayer):
+        raise ValueError("Failed to import art. Active layer is unexpectedly not an ArtLayer.")
+    active_layer.name = name
+
+    return active_layer
 
 
 def import_svg(
-    path: Union[str, Path],
-    ref: Union[ArtLayer, LayerSet] = None,
-    placement: Optional[ElementPlacement] = None,
-    docref: Optional[Document] = None
+    path: str | Path,
+    ref: ArtLayer | LayerSet | None = None,
+    placement: ElementPlacement | None = None,
+    docref: Document | None = None
 ) -> ArtLayer:
     """Imports an SVG image, then moves it if needed.
 
@@ -124,18 +131,21 @@ def import_svg(
     desc.putPath(sID('target'), str(path))
     APP.executeAction(sID('placeEvent'), desc)
 
+    active_layer = docref.activeLayer
+    if not isinstance(active_layer, ArtLayer):
+        raise ValueError("Failed to import SVG. Active layer is unexpectedly a LayerSet.")
+
     # Position the layer if needed
     if ref and placement:
-        docref.activeLayer.move(ref, placement)
-    return docref.activeLayer
+        active_layer.move(ref, placement)
+    return active_layer
 
 
 def paste_file(
     layer: ArtLayer,
-    path: Union[str, Path],
-    action: any = None,
-    action_args: dict = None,
-    docref: Optional[Document] = None
+    path: str | Path,
+    action: Callable[[], Any] | None = None,
+    docref: Document | None = None
 ) -> ArtLayer:
     """Pastes the given file into the specified layer.
 
@@ -156,7 +166,7 @@ def paste_file(
 
     # Optionally run action on art before importing it
     if action:
-        action(**action_args) if action_args else action()
+        action()
 
     # Select the entire image, copy it, and close the file
     newdoc = APP.activeDocument
@@ -168,13 +178,18 @@ def paste_file(
 
     # Paste the image into the specific layer
     docref.paste()
-    return docref.activeLayer
+
+    active_layer = docref.activeLayer
+    if not isinstance(active_layer, ArtLayer):
+        raise ValueError("Failed to paste file. Active layer is unexpectedly not an ArtLayer.")
+
+    return active_layer
 
 
 def import_art_into_new_layer(
-    path: Union[str, Path],
+    path: str | Path,
     name: str = "New Layer",
-    docref: Optional[Document] = None
+    docref: Document | None = None
 ) -> ArtLayer:
     """Creates a new layer and imports a given art into that layer.
 
@@ -207,8 +222,8 @@ def jump_to_history_state(position: int):
     """
     desc1 = ActionDescriptor()
     ref1 = ActionReference()
-    ref1.PutOffset(sID('historyState'),  position)
-    desc1.PutReference(sID('target'),  ref1)
+    ref1.putOffset(sID('historyState'),  position)
+    desc1.putReference(sID('target'),  ref1)
     APP.executeAction(sID('select'), desc1,  NO_DIALOG)
 
 
@@ -220,8 +235,8 @@ def toggle_history_state(direction: str = 'previous') -> None:
     """
     desc1 = ActionDescriptor()
     ref1 = ActionReference()
-    ref1.PutEnumerated(sID('historyState'), sID('ordinal'), sID(direction))
-    desc1.PutReference(sID('target'), ref1)
+    ref1.putEnumerated(sID('historyState'), sID('ordinal'), sID(direction))
+    desc1.putReference(sID('target'), ref1)
     APP.executeAction(sID('select'), desc1, NO_DIALOG)
 
 
@@ -235,7 +250,7 @@ def redo_action() -> None:
     toggle_history_state('next')
 
 
-def reset_document(docref: Optional[Document] = None) -> None:
+def reset_document(docref: Document | None = None) -> None:
     """Reset to the history state to when document was first opened.
 
     Args:
@@ -253,7 +268,7 @@ def reset_document(docref: Optional[Document] = None) -> None:
 """
 
 
-def points_to_pixels(number: Union[int, float], docref: Optional[Document] = None) -> float:
+def points_to_pixels(number: int | float, docref: Document | None = None) -> float:
     """Converts a given number in point units to pixel units.
 
     Args:
@@ -267,7 +282,7 @@ def points_to_pixels(number: Union[int, float], docref: Optional[Document] = Non
     return (docref.resolution / 72) * number
 
 
-def pixels_to_points(number: Union[int, float], docref: Optional[Document] = None) -> float:
+def pixels_to_points(number: int | float, docref: Document | None = None) -> float:
     """Converts a given number in pixel units to point units.
 
     Args:
@@ -300,7 +315,7 @@ def check_active_document() -> bool:
     return False
 
 
-def get_document(name: str) -> Optional[Document]:
+def get_document(name: str) -> Document | None:
     """Check if a Photoshop Document has been loaded.
 
     Args:
@@ -310,10 +325,7 @@ def get_document(name: str) -> Optional[Document]:
         The Document if located, None if missing.
     """
     try:
-        docs = APP.documents
-        if docs.length < 1:
-            return
-        doc = docs.getByName(name)
+        doc = APP.documents[name]
         APP.activeDocument = doc
         return doc
     except PS_EXCEPTIONS:
@@ -341,7 +353,7 @@ def trim_transparent_pixels() -> None:
 """
 
 
-def save_document_png(path: Path, docref: Optional[Document] = None) -> None:
+def save_document_png(path: Path, docref: Document | None = None) -> None:
     """Save the current document as a PNG.
 
     Args:
@@ -358,7 +370,7 @@ def save_document_png(path: Path, docref: Optional[Document] = None) -> None:
         asCopy=True)
 
 
-def save_document_jpeg(path: Path, optimize: bool = True, docref: Optional[Document] = None) -> None:
+def save_document_jpeg(path: Path, docref: Document | None = None, optimize: bool = True) -> None:
     """Save the current document as a JPEG.
 
     Args:
@@ -393,7 +405,7 @@ def save_document_jpeg(path: Path, optimize: bool = True, docref: Optional[Docum
         raise OSError from e
 
 
-def save_document_psd(path: Path, docref: Optional[Document] = None) -> None:
+def save_document_psd(path: Path, docref: Document | None = None) -> None:
     """Save the current document as a PSD.
 
     Args:
@@ -407,7 +419,7 @@ def save_document_psd(path: Path, docref: Optional[Document] = None) -> None:
         asCopy=True)
 
 
-def save_document_psb(path: Path, *_args, **_kwargs) -> None:
+def save_document_psb(path: Path) -> None:
     """Save the current document as a PSB.
 
     Args:
@@ -424,7 +436,7 @@ def save_document_psb(path: Path, *_args, **_kwargs) -> None:
     APP.executeAction(sID('save'), d1, NO_DIALOG)
 
 
-def close_document(save: bool = False, docref: Optional[Document] = None, purge: bool = True) -> None:
+def close_document(save: bool = False, docref: Document | None = None, purge: bool = True) -> None:
     """Close the active document.
 
     Args:
@@ -452,10 +464,10 @@ def rotate_document(angle: int) -> None:
     """
     desc1 = ActionDescriptor()
     ref1 = ActionReference()
-    ref1.PutEnumerated(sID('document'), sID('ordinal'), sID('first'))
-    desc1.PutReference(sID('target'), ref1)
-    desc1.PutUnitDouble(sID('angle'), sID('angleUnit'), angle)
-    APP.executeaction(sID('rotateEventEnum'), desc1, NO_DIALOG)
+    ref1.putEnumerated(sID('document'), sID('ordinal'), sID('first'))
+    desc1.putReference(sID('target'), ref1)
+    desc1.putUnitDouble(sID('angle'), sID('angleUnit'), angle)
+    APP.executeAction(sID('rotateEventEnum'), desc1, NO_DIALOG)
 
 
 def rotate_counter_clockwise() -> None:
@@ -478,7 +490,7 @@ def rotate_full() -> None:
 """
 
 
-def paste_to_document(layer: Union[ArtLayer, LayerSet, None] = None):
+def paste_to_document(layer: ArtLayer | LayerSet | None = None):
     """Paste current clipboard to the current layer.
 
     Args:
@@ -487,6 +499,6 @@ def paste_to_document(layer: Union[ArtLayer, LayerSet, None] = None):
     if layer:
         APP.activeDocument.activeLayer = layer
     desc1 = ActionDescriptor()
-    desc1.PutEnumerated(sID("antiAlias"), sID("antiAliasType"), sID("antiAliasNone"))
-    desc1.PutClass(sID("as"), sID("pixel"))
-    APP.Executeaction(sID("paste"), desc1, NO_DIALOG)
+    desc1.putEnumerated(sID("antiAlias"), sID("antiAliasType"), sID("antiAliasNone"))
+    desc1.putClass(sID("as"), sID("pixel"))
+    APP.executeAction(sID("paste"), desc1, NO_DIALOG)

@@ -1,9 +1,10 @@
 """
 * Cosmetic Template Class Modifiers
 """
+
 # Standard Library Imports
 from functools import cached_property
-from typing import Optional, Callable, Union
+from collections.abc import Callable
 
 # Third Party Imports
 from photoshop.api._artlayer import ArtLayer
@@ -12,6 +13,7 @@ from photoshop.api._layerSet import LayerSet
 # Local Imports
 from src.enums.layers import LAYERS
 import src.helpers as psd
+from src.helpers.layers import select_layer
 from src.templates._core import BaseTemplate
 from src.templates._vector import VectorTemplate
 from src.text_layers import ScaledWidthTextField
@@ -22,29 +24,37 @@ from src.utils.adobe import ReferenceLayer
 """
 
 
-class ExtendedMod (BaseTemplate):
+class ExtendedMod(BaseTemplate):
     """
     Modifier for Extended templates.
 
     Modifies:
         - 'is_content_aware_enabled': Enabled
     """
-    frame_suffix = 'Extended'
-    is_content_aware_enabled = True
+
+    frame_suffix = "Extended"
+
+    @cached_property
+    def is_content_aware_enabled(self) -> bool:
+        return True
 
 
-class FullartMod (BaseTemplate):
+class FullartMod(BaseTemplate):
     """
     Modifier for Fullart templates.
 
     Modifies:
         - 'is_fullart': Enabled
     """
-    frame_suffix = 'Fullart'
-    is_fullart = True
+
+    frame_suffix = "Fullart"
+
+    @cached_property
+    def is_fullart(self) -> bool:
+        return True
 
 
-class BorderlessMod (BaseTemplate):
+class BorderlessMod(BaseTemplate):
     """
     Modifier for Borderless templates.
 
@@ -53,21 +63,28 @@ class BorderlessMod (BaseTemplate):
         - 'is_content_aware_enabled': Enabled
         - 'background_layer': None
     """
-    frame_suffix = 'Borderless'
-    is_fullart = True
-    is_content_aware_enabled = True
+
+    frame_suffix = "Borderless"
+
+    @cached_property
+    def is_fullart(self) -> bool:
+        return True
+
+    @cached_property
+    def is_content_aware_enabled(self) -> bool:
+        return True
 
     """
     * Layers
     """
 
-    @property
-    def background_layer(self) -> Optional[ArtLayer]:
+    @cached_property
+    def background_layer(self) -> ArtLayer | None:
         """Borderless cards have no 'Background' layer."""
         return
 
 
-class VectorBorderlessMod (BorderlessMod):
+class VectorBorderlessMod(BorderlessMod):
     """
     Modifier for vectorized Borderless templates.
 
@@ -81,8 +98,8 @@ class VectorBorderlessMod (BorderlessMod):
     * Groups
     """
 
-    @property
-    def background_group(self) -> Optional[LayerSet]:
+    @cached_property
+    def background_group(self) -> LayerSet | None:
         """Borderless cards have no 'Background' group."""
         return
 
@@ -92,7 +109,7 @@ class VectorBorderlessMod (BorderlessMod):
 """
 
 
-class NyxMod (BaseTemplate):
+class NyxMod(BaseTemplate):
     """
     Modifier for 'Nyxtouched' supported templates.
 
@@ -117,7 +134,7 @@ class NyxMod (BaseTemplate):
     """
 
     @cached_property
-    def background_layer(self) -> Optional[ArtLayer]:
+    def background_layer(self) -> ArtLayer | None:
         """Try finding a Nyx background layer if the card is a 'Nyxtouched' frame."""
         if self.is_nyx:
             if layer := psd.getLayer(self.background, LAYERS.NYX):
@@ -125,7 +142,7 @@ class NyxMod (BaseTemplate):
         return super().background_layer
 
 
-class VectorNyxMod (NyxMod, VectorTemplate):
+class VectorNyxMod(NyxMod, VectorTemplate):
     """
     Modifier for vectorized 'Nyxtouched' supported templates.
 
@@ -137,7 +154,7 @@ class VectorNyxMod (NyxMod, VectorTemplate):
     """
 
     @cached_property
-    def background_group(self) -> Optional[LayerSet]:
+    def background_group(self) -> LayerSet | None:
         """Optional[LayerSet]: Try finding a Nyx background group if the card is a 'Nyxtouched' frame."""
         if self.is_nyx:
             if layer := psd.getLayerSet(LAYERS.NYX):
@@ -145,7 +162,7 @@ class VectorNyxMod (NyxMod, VectorTemplate):
         return super().background_group
 
 
-class CompanionMod (BaseTemplate):
+class CompanionMod(BaseTemplate):
     """
     Modifier for 'Companion' supported templates.
 
@@ -158,7 +175,7 @@ class CompanionMod (BaseTemplate):
     """
 
     @cached_property
-    def frame_layer_methods(self) -> list[Callable]:
+    def frame_layer_methods(self) -> list[Callable[[], None]]:
         """Add companion layers step."""
         funcs = [self.enable_companion_layers] if self.is_companion else []
         return [*super().frame_layer_methods, *funcs]
@@ -179,7 +196,7 @@ class CompanionMod (BaseTemplate):
     """
 
     @cached_property
-    def companion_layer(self) -> Optional[ArtLayer]:
+    def companion_layer(self) -> ArtLayer | None:
         """Companion inner crown layer."""
         return psd.getLayer(self.pinlines, LAYERS.COMPANION)
 
@@ -193,7 +210,7 @@ class CompanionMod (BaseTemplate):
             self.companion_layer.visible = True
 
 
-class VectorCompanionMod (CompanionMod, VectorTemplate):
+class VectorCompanionMod(CompanionMod, VectorTemplate):
     """
     Modifier for vectorized 'Companion' supported templates.
 
@@ -208,7 +225,7 @@ class VectorCompanionMod (CompanionMod, VectorTemplate):
     """
 
     @cached_property
-    def companion_group(self) -> Optional[LayerSet]:
+    def companion_group(self) -> LayerSet | None:
         """Group containing Companion inner crown textures."""
         return psd.getLayerSet(LAYERS.COMPANION)
 
@@ -221,8 +238,13 @@ class VectorCompanionMod (CompanionMod, VectorTemplate):
         if self.is_legendary and self.companion_group:
             self.create_blended_layer(
                 group=self.companion_group,
-                colors=self.crown_colors,
-                masks=self.crown_masks)
+                colors=self.crown_colors
+                if isinstance(self.crown_colors, str)
+                else [color for color in self.crown_colors if isinstance(color, str)]
+                if isinstance(self.crown_colors, list)
+                else "",
+                masks=self.crown_masks,
+            )
 
 
 """
@@ -250,7 +272,7 @@ class NicknameMod(VectorTemplate):
     """
 
     @cached_property
-    def post_text_methods(self) -> list[Callable]:
+    def post_text_methods(self) -> list[Callable[[], None]]:
         """Add nickname text layers."""
         funcs = [self.format_nickname_text] if self.is_nickname else []
         return [*super().post_text_methods, *funcs]
@@ -262,7 +284,7 @@ class NicknameMod(VectorTemplate):
     @cached_property
     def is_nickname(self) -> bool:
         """Toggles nickname behavior. Can be overwritten to implement
-            conditional logic."""
+        conditional logic."""
         return True
 
     """
@@ -270,18 +292,18 @@ class NicknameMod(VectorTemplate):
     """
 
     @cached_property
-    def text_layer_nickname(self) -> Optional[ArtLayer]:
+    def text_layer_nickname(self) -> ArtLayer | None:
         """Alternate text layer to use for original card name when a nickname is used."""
-        _layer = psd.getLayer(LAYERS.NICKNAME, self.text_group)
-        _layer.visible = True
-        return _layer
+        if layer := psd.getLayer(LAYERS.NICKNAME, self.text_group):
+            layer.visible = True
+            return layer
 
     """
     * Layer Groups
     """
 
     @cached_property
-    def nickname_group(self) -> Optional[LayerSet]:
+    def nickname_group(self) -> LayerSet | None:
         """Nickname frame element group."""
         return psd.getLayerSet(LAYERS.NICKNAME)
 
@@ -290,9 +312,9 @@ class NicknameMod(VectorTemplate):
     """
 
     @cached_property
-    def nickname_shape(self) -> Optional[ReferenceLayer]:
+    def nickname_shape(self) -> ReferenceLayer | None:
         """Shape layer behind the original card name on the nickname frame element. Also used
-            to position the original card name as a reference."""
+        to position the original card name as a reference."""
         _shape_group = psd.getLayerSet(LAYERS.SHAPE, self.nickname_group)
 
         # Check for a legendary-specific nickname shape
@@ -302,7 +324,7 @@ class NicknameMod(VectorTemplate):
         return psd.get_reference_layer(LAYERS.NORMAL, _shape_group)
 
     @cached_property
-    def enabled_shapes(self) -> list[Union[ArtLayer, LayerSet, None]]:
+    def enabled_shapes(self) -> list[ArtLayer | LayerSet | None]:
         """Add Nickname shape if needed."""
         _shapes = super().enabled_shapes
         if self.is_nickname:
@@ -321,13 +343,16 @@ class NicknameMod(VectorTemplate):
         # Ask user to input the nickname if not provided
         self.prompt_nickname_text()
 
-        # Add original name
-        self.text.append(
-            ScaledWidthTextField(
-                layer=self.text_layer_nickname,
-                contents=str(self.layout.name),
-                reference=self.nickname_shape))
-        self.layout.name = self.layout.nickname_text
+        if self.text_layer_nickname:
+            # Add original name
+            self.text.append(
+                ScaledWidthTextField(
+                    layer=self.text_layer_nickname,
+                    contents=str(self.layout.name),
+                    reference=self.nickname_shape,
+                )
+            )
+        self.layout.name = self.layout.nickname
         return super().basic_text_layers()
 
     """
@@ -335,7 +360,6 @@ class NicknameMod(VectorTemplate):
     """
 
     def format_nickname_text(self) -> None:
-
         # Center the card name on the nickname plate
         psd.align_all(self.text_layer_nickname, self.nickname_shape)
 
@@ -345,9 +369,11 @@ class NicknameMod(VectorTemplate):
 
     def prompt_nickname_text(self) -> None:
         """Check if nickname text is already defined. If not, prompt the user."""
-        if not self.layout.nickname:
+        if not self.layout.nickname and self.text_layer_name:
             _textItem = self.text_layer_name.textItem
-            _textItem.contents = 'ENTER NICKNAME'
+            _textItem.contents = "ENTER NICKNAME"
+            select_layer(self.text_layer_name)
             self.console.await_choice(
-                self.event, msg='Enter nickname text, then hit continue ...')
+                self.event, msg="Enter nickname text, then hit continue ..."
+            )
             self.layout.nickname = _textItem.contents

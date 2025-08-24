@@ -35,4 +35,4 @@ def run_action(action_set: str, action: str) -> None:
     ref7.putName(sID("action"),  action)
     ref7.putName(sID("actionSet"),  action_set)
     desc310.putReference(sID("target"),  ref7)
-    APP.ExecuteAction(sID("play"), desc310, NO_DIALOG)
+    APP.executeAction(sID("play"), desc310, NO_DIALOG)

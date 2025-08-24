@@ -5,7 +5,7 @@
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 from threading import Event
 from concurrent.futures import ThreadPoolExecutor as Pool, as_completed
 

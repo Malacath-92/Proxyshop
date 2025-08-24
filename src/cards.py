@@ -5,7 +5,7 @@
 # Standard Library Imports
 from contextlib import suppress
 from pathlib import Path
-from typing import Optional, Union, TypedDict, Any
+from typing import TypedDict, Any, cast
 
 # Third Party Imports
 from omnitils.strings import normalize_str
@@ -13,8 +13,9 @@ import yarl
 
 # Local Imports
 from src._config import AppConfig
-from src.console import msg_warn
+from src.console import TerminalConsole, msg_warn
 from src.enums.mtg import TransformIcons, non_italics_abilities, CardTextPatterns
+from src.gui.console import GUIConsole
 from src.schema.colors import ColorObject
 from src.utils import scryfall
 
@@ -32,19 +33,19 @@ CardSymbolString = tuple[int, list[ColorObject]]
 class CardDetails(TypedDict):
     """Card details obtained from processing a card's art file name."""
     name: str
-    set: Optional[str]
-    number: Optional[str]
-    artist: Optional[str]
-    creator: Optional[str]
-    file: Union[str, Path]
+    set: str
+    number: str
+    artist: str
+    creator: str
+    file: str | Path
 
 
 class FrameDetails(TypedDict):
     """Frame details obtained from processing frame logic."""
-    background: Optional[str]
-    pinlines: Optional[str]
-    twins: Optional[str]
-    identity: Optional[str]
+    background: str
+    pinlines: str
+    twins: str
+    identity: str
     is_colorless: bool
     is_hybrid: bool
 
@@ -54,7 +55,7 @@ class FrameDetails(TypedDict):
 """
 
 
-def get_card_data(card: CardDetails, cfg: AppConfig, logger: Optional[Any] = None) -> Optional[dict]:
+def get_card_data(card: CardDetails, cfg: AppConfig, logger: GUIConsole | TerminalConsole | None = None) -> dict[str,Any] | None:
     """Fetch card data from the Scryfall API.
 
     Args:
@@ -145,7 +146,7 @@ def parse_card_info(file_path: Path) -> CardDetails:
 """
 
 
-def process_card_data(data: dict, card: CardDetails) -> dict:
+def process_card_data(data: dict[str,Any], card: CardDetails) -> dict[str,Any]:
     """Process any additional required data before sending it to the layout object.
 
     Args:
@@ -161,7 +162,8 @@ def process_card_data(data: dict, card: CardDetails) -> dict:
     # Modify meld card data to fit transform layout
     if data['layout'] == 'meld':
         # Ignore tokens and other objects
-        front, back = [], None
+        front: list[dict[str,Any]] = []
+        back: dict[str,Any] | None =  None
         for part in data.get('all_parts', []):
             if part.get('component') == 'meld_part':
                 front.append(part)
@@ -169,16 +171,16 @@ def process_card_data(data: dict, card: CardDetails) -> dict:
                 back = part
 
         # Figure out if card is a front or a back
-        faces = [front[0], back] if (
+        faces: list[dict[str,Any] | None] = [front[0], back] if back and (
             name_normalized == normalize_str(back.get('name', ''), True) or
             name_normalized == normalize_str(front[0].get('name', ''), True)
         ) else [front[1], back]
 
         # Pull JSON data for each face and set object to card_face
         data['card_faces'] = [{
-            **scryfall.get_uri_object(yarl.URL(n['uri'])),
+            **scryfall.get_uri_object(yarl.URL(face['uri'])),
             'object': 'card_face'
-        } for n in faces]
+        } for face in faces if face]
 
         # Add meld transform icon if none provided
         if not any([bool(n in TransformIcons) for n in data.get('frame_effects', [])]):
@@ -188,19 +190,20 @@ def process_card_data(data: dict, card: CardDetails) -> dict:
     # Check for alternate MDFC / Transform layouts
     if 'card_faces' in data:
         # Select the corresponding face
-        card, i = (data['card_faces'][0], 0) if (
-            normalize_str(data['card_faces'][0].get('name', ''), True) == name_normalized
-        ) else (data['card_faces'][1], 1)
+        card_faces = cast(list[dict[str,Any]], data['card_faces'])
+        card_face, i = (card_faces[0], 0) if (
+            normalize_str(card_faces[0].get('name', ''), True) == name_normalized
+        ) else (card_faces[1], 1)
         # Decide if this is a front face
         data['front'] = True if i == 0 else False
         # Transform / MDFC Planeswalker layout
-        if 'Planeswalker' in card.get('type_line', ''):
+        if 'Planeswalker' in card_face.get('type_line', ''):
             data['layout'] = 'planeswalker_tf' if data.get('layout') == 'transform' else 'planeswalker_mdfc'
         # Transform Saga layout
-        if 'Saga' in card['type_line']:
+        if 'Saga' in card_face['type_line']:
             data['layout'] = 'saga'
         # Battle layout
-        if 'Battle' in card['type_line']:
+        if 'Battle' in card_face['type_line']:
             data['layout'] = 'battle'
         return data
 
@@ -236,14 +239,14 @@ def process_card_data(data: dict, card: CardDetails) -> dict:
 def locate_symbols(
     text: str,
     symbol_map: dict[str, tuple[str, list[ColorObject]]],
-    logger: Optional[Any] = None
+    logger: Any | None = None
 ) -> tuple[str, list[CardSymbolString]]:
     """Locate symbols in the input string, replace them with the proper characters from the mana font,
     and determine the colors those characters need to be.
 
     Args:
         text: String to analyze for symbols.
-        symbol_map: Maps a characters and colors to a scryfall symbol string.
+        symbol_map: Maps characters and colors to a scryfall symbol string.
         logger: Console or other logger object used to relay warning messages.
 
     Returns:
@@ -277,9 +280,9 @@ def locate_symbols(
 
 def locate_italics(
     st: str,
-    italics_strings: list,
+    italics_strings: list[str],
     symbol_map: dict[str, tuple[str, list[ColorObject]]],
-    logger: Optional[Any] = None
+    logger: Any | None = None
 ) -> list[CardItalicString]:
     """Locate all instances of italic strings in the input string and record their start and end indices.
 
@@ -292,7 +295,7 @@ def locate_italics(
     Returns:
         List of italic string indices (start and end).
     """
-    indexes = []
+    indexes: list[tuple[int,int]] = []
     for italic in italics_strings:
 
         # Look for symbols present in italicized text
@@ -333,7 +336,7 @@ def generate_italics(card_text: str) -> list[str]:
     Returns:
         List of italics strings.
     """
-    italic_text = []
+    italic_text: list[str] = []
 
     # Find each reminder text block
     end_index = 0

@@ -2,7 +2,8 @@
 * Helpers: Text Items
 """
 # Standard Library Imports
-from typing import Sequence, Union, Optional, Any
+from typing import Literal, overload
+from collections.abc import Sequence
 
 # Third Party Imports
 from photoshop.api import (
@@ -44,7 +45,7 @@ def get_font_size(layer: ArtLayer) -> float:
     return round(layer.textItem.size * get_text_scale_factor(layer), 2)
 
 
-def get_text_key(layer: ArtLayer) -> Any:
+def get_text_key(layer: ArtLayer) -> ActionDescriptor:
     """Get the textKey action reference from a TextLayer.
 
     Args:
@@ -56,7 +57,7 @@ def get_text_key(layer: ArtLayer) -> Any:
     return descriptor.getObjectValue(sID('textKey'))
 
 
-def apply_text_key(text_layer, text_key) -> None:
+def apply_text_key(text_layer: ArtLayer, text_key: ActionDescriptor) -> None:
     """Applies a TextKey action descriptor to a given TextLayer.
 
     Args:
@@ -70,7 +71,7 @@ def apply_text_key(text_layer, text_key) -> None:
     APP.executeAction(sID("set"), action, NO_DIALOG)
 
 
-def get_line_count(layer: Optional[ArtLayer] = None, docref: Optional[Document] = None) -> int:
+def get_line_count(layer: ArtLayer, docref: Document | None = None) -> int:
     """Get the number of lines in a paragraph text layer.
 
     Args:
@@ -152,7 +153,7 @@ def replace_text(layer: ArtLayer, find: str, replace: str) -> None:
 def replace_text_legacy(
     find: str,
     replace: str,
-    layer: Optional[ArtLayer] = None,
+    layer: ArtLayer | None = None,
     targeted_replace: bool = True
 ) -> None:
     """Replace all instances of `replace_this` in the specified layer with `replace_with`, using Photoshop's
@@ -302,12 +303,27 @@ def remove_leading_text(layer: ArtLayer, idx: int) -> None:
 * Text Item Size
 """
 
+ScaleAxis = Literal["xx", "yy"]
+
+@overload
+def get_text_scale_factor(
+    layer: ArtLayer,
+    axis: list[ScaleAxis],
+    text_key: ActionDescriptor | None=None
+) -> list[float]: ...
+
+@overload
+def get_text_scale_factor(
+    layer: ArtLayer,
+    axis: ScaleAxis = 'yy',
+    text_key: ActionDescriptor | None=None
+) -> float: ...
 
 def get_text_scale_factor(
-    layer: Optional[ArtLayer] = None,
-    axis: Optional[Union[str, list]] = 'yy',
-    text_key=None
-) -> Union[int, float, list[Union[int, float]]]:
+    layer: ArtLayer,
+    axis: ScaleAxis | list[ScaleAxis] = 'yy',
+    text_key: ActionDescriptor | None=None
+) -> float | list[float]:
     """Get the scale factor of the document for changing text size.
 
     Args:
@@ -318,6 +334,8 @@ def get_text_scale_factor(
     Returns:
         Float scale factor
     """
+
+
     # Get the textKey if not provided
     if not text_key:
         # Get text key
@@ -330,11 +348,11 @@ def get_text_scale_factor(
         # Check list of axis
         if isinstance(axis, list):
             return [transform.getUnitDoubleValue(sID(n)) for n in axis]
-        # Check string axis
-        if isinstance(axis, str):
-            return transform.getUnitDoubleValue(sID(axis))
-    return 1 if not isinstance(axis, list) else [1] * len(axis)
-
+        # String axis
+        return transform.getUnitDoubleValue(sID(axis))
+    if isinstance(axis, list):
+        return [1.0] * len(axis)
+    return 1.0
 
 """
 * Text Alignment
@@ -388,7 +406,7 @@ def align_text_center(action_list: ActionList, start: int, end: int) -> None:
 """
 
 
-def set_space_after(space: Union[int, float]) -> None:
+def set_space_after(space: int | float) -> None:
     """Manually assign the 'space after' property for a paragraph text layer.
 
     Args:
@@ -397,16 +415,16 @@ def set_space_after(space: Union[int, float]) -> None:
     desc1 = ActionDescriptor()
     ref1 = ActionReference()
     deesc2 = ActionDescriptor()
-    ref1.PutProperty(sID("property"), sID("paragraphStyle"))
-    ref1.PutEnumerated(sID("textLayer"), sID("ordinal"), sID("targetEnum"))
-    desc1.PutReference(sID("target"), ref1)
-    deesc2.PutInteger(sID("textOverrideFeatureName"), 808464438)
-    deesc2.PutUnitDouble(sID("spaceAfter"), sID("pointsUnit"), space)
-    desc1.PutObject(sID("to"), sID("paragraphStyle"), deesc2)
+    ref1.putProperty(sID("property"), sID("paragraphStyle"))
+    ref1.putEnumerated(sID("textLayer"), sID("ordinal"), sID("targetEnum"))
+    desc1.putReference(sID("target"), ref1)
+    deesc2.putInteger(sID("textOverrideFeatureName"), 808464438)
+    deesc2.putUnitDouble(sID("spaceAfter"), sID("pointsUnit"), space)
+    desc1.putObject(sID("to"), sID("paragraphStyle"), deesc2)
     APP.executeAction(sID("set"), desc1, NO_DIALOG)
 
 
-def set_text_leading(layer: ArtLayer, leading: Union[float, int]) -> None:
+def set_text_leading(layer: ArtLayer, leading: float | int) -> None:
     """Manually assign font leading to a text layer using action descriptors.
 
     Args:
@@ -421,10 +439,10 @@ def set_text_leading(layer: ArtLayer, leading: Union[float, int]) -> None:
     desc1.putReference(sID("target"), ref1)
     desc2.putUnitDouble(sID("leading"), sID("pointsUnit"), leading)
     desc1.putObject(sID("to"), sID("textStyle"), desc2)
-    APP.executeaction(sID("set"), desc1, NO_DIALOG)
+    APP.executeAction(sID("set"), desc1, NO_DIALOG)
 
 
-def set_text_size(layer: ArtLayer, size: Union[float, int]) -> None:
+def set_text_size(layer: ArtLayer, size: float | int) -> None:
     """Manually assign font size to a text layer using action descriptors.
 
     Args:
@@ -443,7 +461,7 @@ def set_text_size(layer: ArtLayer, size: Union[float, int]) -> None:
     APP.executeAction(sID("set"), desc1, NO_DIALOG)
 
 
-def set_text_size_and_leading(layer: ArtLayer, size: Union[int, float], leading: Union[int, float]) -> None:
+def set_text_size_and_leading(layer: ArtLayer, size: int | float, leading: int | float) -> None:
     """Manually assign font size and leading space to a text layer using action descriptors.
 
     Args:
@@ -482,7 +500,7 @@ def set_composer(layer: ArtLayer, every: bool = False) -> None:
     desc1.putReference(sID("target"), ref1)
     desc2.putBoolean(sID("textEveryLineComposer"), every)
     desc1.putObject(sID("to"), paraStyle, desc2)
-    APP.executeaction(sID("set"), desc1, NO_DIALOG)
+    APP.executeAction(sID("set"), desc1, NO_DIALOG)
 
 
 def set_composer_single_line(layer: ArtLayer) -> None:
@@ -511,7 +529,8 @@ def set_font(layer: ArtLayer, font_name: str) -> None:
         layer: ArtLayer containing TextItem.
         font_name:  Name of the font to set.
     """
-    layer.textItem.font = APP.fonts.getByName(font_name).postScriptName
+    if font := APP.fonts.getByName(font_name):
+        layer.textItem.font = font.postScriptName
 
 
 """
@@ -519,7 +538,7 @@ def set_font(layer: ArtLayer, font_name: str) -> None:
 """
 
 
-def ensure_visible_reference(reference: ArtLayer) -> Optional[TextItem]:
+def ensure_visible_reference(reference: ArtLayer) -> TextItem | None:
     """Ensures that a layer used for reference has bounds if it is a text layer.
 
     Args:
@@ -601,7 +620,7 @@ def scale_text_left_overlap(layer: ArtLayer, reference: ArtLayer, gap: int = 30)
         gap: Minimum gap to ensure between the layer and reference (DPI adjusted).
     """
     # Ensure a valid and visible reference layer
-    if not reference or reference.bounds == [0, 0, 0, 0]:
+    if not reference or reference.bounds == (0, 0, 0, 0):
         return
     ref_TI = ensure_visible_reference(reference)
 
@@ -645,11 +664,11 @@ def scale_text_left_overlap(layer: ArtLayer, reference: ArtLayer, gap: int = 30)
 
 def scale_text_to_width(
     layer: ArtLayer,
-    width: int,
+    width: int | float,
     spacing: int = 64,
     step: float = 0.4,
-    font_size: Optional[float] = None
-) -> Optional[float]:
+    font_size: float | None = None
+) -> float | None:
     """Resize a given text layer's font size/leading until it fits inside a reference width.
 
     Args:
@@ -692,11 +711,11 @@ def scale_text_to_width(
 
 def scale_text_to_height(
     layer: ArtLayer,
-    height: int,
-    spacing: int = 64,
+    height: float,
+    spacing: float = 64,
     step: float = 0.4,
-    font_size: Optional[float] = None
-) -> Optional[float]:
+    font_size: float | None = None
+) -> float | None:
     """Resize a given text layer's font size/leading until it fits inside a reference width.
 
     Args:
@@ -739,7 +758,7 @@ def scale_text_to_height(
 
 def scale_text_to_width_textbox(
     layer: ArtLayer,
-    font_size: Optional[float] = None,
+    font_size: float | None = None,
     step: float = 0.1
 ) -> None:
     """Check if the text in a TextLayer exceeds its bounding box.
@@ -762,10 +781,10 @@ def scale_text_to_width_textbox(
 
 def scale_text_layers_to_height(
     text_layers: list[ArtLayer],
-    ref_height: Union[int, float],
-    font_size: Optional[float] = None,
+    ref_height: int | float,
+    font_size: float | None = None,
     step_sizes: Sequence[float] | None = None
-) -> Optional[float]:
+) -> float | None:
     """Scale multiple text layers until they all can fit within the same given height dimension.
 
     Args:

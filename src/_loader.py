@@ -2,6 +2,7 @@
 * Plugin and Template Loader
 * Only import enums and utils
 """
+
 # Standard Library Imports
 import json
 import shutil
@@ -13,7 +14,8 @@ import os
 from pathlib import Path
 from traceback import format_exc, print_tb
 from types import ModuleType
-from typing import Optional, TypedDict, NotRequired, Any, Callable, Union
+from typing import Optional, TypedDict, NotRequired, Any, overload
+from collections.abc import Callable
 
 # Third Party Imports
 from py7zr import SevenZipFile
@@ -30,7 +32,8 @@ from src.enums.mtg import (
     layout_map_category,
     layout_map_types,
     layout_map_display_condition_dual,
-    layout_map_display_condition)
+    layout_map_display_condition,
+)
 from src.utils.download import download_cloudfront
 
 """
@@ -40,6 +43,7 @@ from src.utils.download import download_cloudfront
 
 class TemplateUpdate(TypedDict):
     """Details about the latest update for a given AppTemplate."""
+
     name: NotRequired[str]
     version: NotRequired[str]
     size: NotRequired[int]
@@ -47,10 +51,11 @@ class TemplateUpdate(TypedDict):
 
 class TemplateDetails(TypedDict):
     """Details about a specific template within the TemplateCategoryMap."""
+
     name: str
     class_name: str
-    object: 'AppTemplate'
-    config: 'ConfigManager'
+    object: "AppTemplate"
+    config: "ConfigManager"
 
 
 """Dictionary which maps a template's displayed names to classes, and classes to template types."""
@@ -60,17 +65,19 @@ ManifestTemplateMap = dict[str, dict[str, list[str]]]
 TemplateTypeMap = dict[str, dict[str, TemplateDetails]]
 
 """Map of templates selected for each template type."""
-TemplateSelectedMap = dict[str, Optional[TemplateDetails]]
+TemplateSelectedMap = dict[str, TemplateDetails | None]
 
 
 class TemplateRequirements(TypedDict):
     """Requirements that must be met for a template to be supported."""
+
     templates: NotRequired[list[str]]
     version: NotRequired[str]
 
 
 class ManifestTemplateDetails(TypedDict):
     """Template details pulled from a plugin's `manifest.yml` file or Proxyshop's `templates.yml` file."""
+
     file: str
     name: NotRequired[str]
     id: NotRequired[str]
@@ -82,6 +89,7 @@ class ManifestTemplateDetails(TypedDict):
 
 class TemplateMetadata(TypedDict):
     """TemplateDetails, minus the template class map."""
+
     file: str
     name: NotRequired[str]
     id: NotRequired[str]
@@ -92,6 +100,7 @@ class TemplateMetadata(TypedDict):
 
 class PluginMetadata(TypedDict):
     """Metadata contained in the `PLUGIN` table of a plugin's `manifest.yml` file."""
+
     name: NotRequired[str]
     author: NotRequired[str]
     desc: NotRequired[str]
@@ -104,13 +113,39 @@ class PluginMetadata(TypedDict):
 
 class TemplateCategoryMap(TypedDict):
     """Data mapped to a displayed template category, e.g. 'Normal'."""
+
     names: list[str]
     map: TemplateTypeMap
+
+
+class KivyConfigTitle(TypedDict):
+    type: str
+    title: str
+
+
+class KivyConfigSection(KivyConfigTitle):
+    type: str
+    title: str
+    desc: str
+    section: str
+    key: str
+    options: NotRequired[list[str]]
+    default: str | int | float
+
+
+class IniConfig(TypedDict):
+    key: str
+    value: str | int | float
 
 
 """
 * Config File Utils
 """
+
+
+class CustomConfigParser(ConfigParser):
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
 
 
 def verify_config_fields(ini_file: Path, data_file: Path) -> None:
@@ -122,15 +157,16 @@ def verify_config_fields(ini_file: Path, data_file: Path) -> None:
         data_file: Data file containing config fields to check for, JSON or TOML.
     """
     # Track data and changes
-    data, changed = {}, False
+    data: dict[str, list[IniConfig]] = {}
+    changed = False
 
     # Data file doesn't exist or is unsupported data type
-    if not data_file.is_file() or data_file.suffix not in ['.toml', '.json']:
+    if not data_file.is_file() or data_file.suffix not in [".toml", ".json"]:
         return
 
     # Load data from JSON or TOML file
     raw = load_data_file(data_file)
-    raw = parse_kivy_config_toml(raw) if data_file.suffix == '.toml' else raw
+    raw = parse_kivy_config_toml(raw) if data_file.suffix == ".toml" else raw
 
     # Ensure INI file exists and load ConfigParser
     ensure_file(ini_file)
@@ -139,14 +175,11 @@ def verify_config_fields(ini_file: Path, data_file: Path) -> None:
     # Build a dictionary of the necessary values
     for row in raw:
         # Add row if it's not a title
-        if row.get('type', 'title') == 'title':
+        if row.get("type", "title") == "title":
             continue
-        data.setdefault(
-            row.get('section', 'BROKEN'), []
-        ).append({
-            'key': row.get('key', ''),
-            'value': row.get('default', 0)
-        })
+        data.setdefault(row.get("section", "BROKEN"), []).append(
+            {"key": row.get("key", ""), "value": row.get("default", 0)}
+        )
 
     # Add the data to ini where missing
     for section, settings in data.items():
@@ -156,8 +189,8 @@ def verify_config_fields(ini_file: Path, data_file: Path) -> None:
             changed = True
         # Check if each setting exists
         for setting in settings:
-            if not config.has_option(section, setting['key']):
-                config.set(section, setting['key'], str(setting['value']))
+            if not config.has_option(section, setting["key"]):
+                config.set(section, setting["key"], str(setting["value"]))
                 changed = True
 
     # If ini has changed, write changes
@@ -166,7 +199,21 @@ def verify_config_fields(ini_file: Path, data_file: Path) -> None:
             config.write(f)  # noqa
 
 
-def parse_kivy_config_json(raw: list[dict]) -> list[dict]:
+@overload
+def parse_kivy_config_json(
+    raw: list[KivyConfigTitle | KivyConfigSection],
+) -> list[KivyConfigTitle | KivyConfigSection]: ...
+
+
+@overload
+def parse_kivy_config_json(
+    raw: list[dict[str, str | list[str]]],
+) -> list[dict[str, str | list[str]]]: ...
+
+
+def parse_kivy_config_json(
+    raw: list[dict[str, str | list[str]]] | list[KivyConfigTitle | KivyConfigSection],
+) -> list[dict[str, str | list[str]]] | list[KivyConfigTitle | KivyConfigSection]:
     """Parse config JSON data for use with Kivy settings panel.
 
     Args:
@@ -177,55 +224,67 @@ def parse_kivy_config_json(raw: list[dict]) -> list[dict]:
     """
     # Remove unsupported keys
     for row in raw:
-        if 'default' in row:
-            row.pop('default')
+        if "default" in row:
+            row.pop("default")
     return raw
 
 
-def parse_kivy_config_toml(raw: dict) -> list[dict]:
+def parse_kivy_config_toml(
+    raw: dict[str, Any],
+) -> list[KivyConfigTitle | KivyConfigSection]:
     """Parse config TOML data for use with Kivy settings panel.
 
-    Args:
-        raw: Raw loaded TOML data.
+        Args:
+            raw: Raw loaded TOML data.
+                 Something along the lines of (not yet possible to express in Python):
 
-    Returns:
-        Properly parsed data safe for use with Kivy.
+    ```
+    class Config(TypedDict):
+        prefix: str
+
+    class Section(TypedDict):
+        title: str
+        [str]: dict[str,str|list[str]]
+
+    class RawConf(TypedDict):
+        __CONFIG__: Config
+        [str]: Section
+    ```
+
+        Returns:
+            Properly parsed data safe for use with Kivy.
     """
 
     # Process __CONFIG__ header if present
-    cfg_header = raw.pop('__CONFIG__', {})
-    prefix = cfg_header.get('prefix', '')
+    cfg_header = raw.pop("__CONFIG__", {})
+    prefix = cfg_header.get("prefix", "")
 
     # Process data
-    data: list[dict] = []
+    data: list[KivyConfigTitle | KivyConfigSection] = []
     for section, settings in raw.items():
-
         # Add section title if it exists
-        if title := settings.pop('title', None):
-            data.append({
-                'type': 'title',
-                'title': title
-            })
+        if title := settings.pop("title", None):
+            data.append({"type": "title", "title": title})
 
         # Add each setting within this section
         for key, field in settings.items():
-
             # Establish data type and default value
-            data_type = field.get('type', 'bool')
-            display_default = default = field.get('default', 0)
-            if data_type == 'bool':
-                display_default = 'True' if default else 'False'
-            elif data_type in ['string', 'options', 'path']:
+            data_type = field.get("type", "bool")
+            display_default = default = field.get("default", 0)
+            if data_type == "bool":
+                display_default = "True" if default else "False"
+            elif data_type in ["string", "options", "path"]:
                 display_default = f"'{default}'"
-            setting = {
-                'type': data_type,
-                'title': f"[b]{field.get('title', 'Broken Setting')}[/b]",
-                'desc': f"{field.get('desc', '')}\n"
-                        f"[b](Default: {display_default})[/b]",
-                'section': f'{prefix}.{section}' if prefix else section,
-                'key': key, 'default': default}
-            if options := field.get('options'):
-                setting['options'] = options
+            setting: KivyConfigSection = {
+                "type": data_type,
+                "title": f"[b]{field.get('title', 'Broken Setting')}[/b]",
+                "desc": f"{field.get('desc', '')}\n[b](Default: {display_default})[/b]",
+                "section": f"{prefix}.{section}" if prefix else section,
+                "key": key,
+                "default": default,
+            }
+            if options := field.get("options"):
+                setting["options"] = options
             data.append(setting)
 
     # Return parsed data
@@ -245,7 +304,7 @@ def get_kivy_config_from_schema(config: Path) -> str:
     raw = load_data_file(config)
 
     # Use correct parser
-    if config.suffix == '.toml':
+    if config.suffix == ".toml":
         raw = parse_kivy_config_toml(raw)
     return json.dumps(parse_kivy_config_json(raw))
 
@@ -263,7 +322,9 @@ def copy_config_or_verify(path_from: Path, path_to: Path, data_file: Path) -> No
     shutil.copy(path_from, path_to)
 
 
-def get_config_object(path: Union[str, os.PathLike, list[Union[str, os.PathLike]]]) -> ConfigParser:
+def get_config_object(
+    path: str | os.PathLike[str] | list[str | os.PathLike[str]],
+) -> ConfigParser:
     """Returns a ConfigParser object using a valid ini path.
 
     Args:
@@ -275,9 +336,8 @@ def get_config_object(path: Union[str, os.PathLike, list[Union[str, os.PathLike]
     Raises:
         ValueError: If valid ini file wasn't received.
     """
-    config = ConfigParser(allow_no_value=True)
-    config.optionxform = str
-    config.read(path, encoding='utf-8')
+    config = CustomConfigParser(allow_no_value=True)
+    config.read(path, encoding="utf-8")
     return config
 
 
@@ -293,22 +353,28 @@ class ConfigManager:
         template_class: Name of the template class, if provided.
         template: AppTemplate object corresponding to the template class, if provided.
     """
+
     gui_elements = []
 
     def __init__(
-        self, template_class: Optional[str] = None,
-        template: Optional['AppTemplate'] = None
+        self,
+        template_class: str | None = None,
+        template: Optional["AppTemplate"] = None,
     ) -> None:
-
         # Establish template and plugin details
-        self._template_class: Optional[str] = template_class.replace(
-            'Back', 'Front') if template_class else None
-        self._template: Optional[AppTemplate] = template or None
-        self._plugin: Optional[AppPlugin] = template.plugin if template else None
+        self._template_class: str | None = (
+            template_class.replace("Back", "Front") if template_class else None
+        )
+        self._template: AppTemplate | None = template or None
+        self._plugin: AppPlugin | None = template.plugin if template else None
 
         # Core path where config folders exist
-        self._path_schema = self._plugin.path_config if self._plugin else PATH.SRC_DATA_CONFIG
-        self._path_ini = self._plugin.path_ini if self._plugin else PATH.SRC_DATA_CONFIG_INI
+        self._path_schema = (
+            self._plugin.path_config if self._plugin else PATH.SRC_DATA_CONFIG
+        )
+        self._path_ini = (
+            self._plugin.path_ini if self._plugin else PATH.SRC_DATA_CONFIG_INI
+        )
 
     """
     * Path: App settings only modified in Global
@@ -363,29 +429,29 @@ class ConfigManager:
     """
 
     @property
-    def template_path_schema(self) -> Optional[Path]:
+    def template_path_schema(self) -> Path | None:
         """Template specific config schema, in JSON or TOML."""
-        if self._template:
+        if self._template and self._template_class:
             path = self._template.get_path_config(self._template_class)
             return path if path.is_file() else None
         return
 
     @property
-    def template_path_ini(self) -> Optional[Path]:
+    def template_path_ini(self) -> Path | None:
         """Template specific config INI."""
-        if self._template:
+        if self._template and self._template_class:
             return self._template.get_path_ini(self._template_class)
         return
 
     @property
-    def template_json(self) -> Optional[str]:
+    def template_json(self) -> str | None:
         """Template specific config as Kivy readable JSON string dump."""
         if self.template_path_schema:
             return get_kivy_config_from_schema(self.template_path_schema)
         return
 
     @property
-    def template_cfg(self) -> Optional[ConfigParser]:
+    def template_cfg(self) -> ConfigParser | None:
         """Template specific ConfigParser instance."""
         if self.template_path_ini:
             return get_config_object(self.template_path_ini)
@@ -407,16 +473,12 @@ class ConfigManager:
     def get_config(self) -> ConfigParser:
         """Return a ConfigParser instance with all relevant config data loaded."""
         self.validate_configs()
-        if self.has_template_ini:
+        if self.template_path_ini and self.template_path_ini.is_file():
             # Load template INI file instead of base
             self.validate_template_configs()
-            return get_config_object([
-                self.app_path_ini,
-                self.template_path_ini])
+            return get_config_object([self.app_path_ini, self.template_path_ini])
         # Load app and base only
-        return get_config_object([
-            self.app_path_ini,
-            self.base_path_ini])
+        return get_config_object([self.app_path_ini, self.base_path_ini])
 
     """
     * Validate Methods
@@ -424,12 +486,10 @@ class ConfigManager:
 
     def validate_configs(self) -> None:
         """Validate app and base configs against data schemas."""
+        verify_config_fields(ini_file=self.app_path_ini, data_file=self.app_path_schema)
         verify_config_fields(
-            ini_file=self.app_path_ini,
-            data_file=self.app_path_schema)
-        verify_config_fields(
-            ini_file=self.base_path_ini,
-            data_file=self.base_path_schema)
+            ini_file=self.base_path_ini, data_file=self.base_path_schema
+        )
 
     def validate_template_configs(self) -> None:
         """Validate template configs against data schemas."""
@@ -441,13 +501,14 @@ class ConfigManager:
         copy_config_or_verify(
             path_from=self.base_path_ini,
             path_to=self.template_path_ini,
-            data_file=self.base_path_schema)
+            data_file=self.base_path_schema,
+        )
 
         # Validate template specific configs
         if self.template_path_schema:
             verify_config_fields(
-                ini_file=self.template_path_ini,
-                data_file=self.template_path_schema)
+                ini_file=self.template_path_ini, data_file=self.template_path_schema
+            )
 
 
 class AppPlugin:
@@ -468,8 +529,8 @@ class AppPlugin:
         FileNotFoundError: If the plugin path or manifest file couldn't be found.
         ModuleNotFoundError: If the plugin's python module couldn't be found.
     """
-    def __init__(self, con: AppConstants, env: AppEnvironment, path: Path):
 
+    def __init__(self, con: AppConstants, env: AppEnvironment, path: Path):
         # Save a reference to the global application constants
         self.con: AppConstants = con
         self.env: AppEnvironment = env
@@ -480,16 +541,18 @@ class AppPlugin:
         self._root = path
 
         # Find a valid manifest
-        self._manifest = Path(path, 'manifest.yml')
+        self._manifest = Path(path, "manifest.yml")
         if not self._manifest.is_file():
-            self._manifest = Path(path, 'manifest.yaml')
+            self._manifest = Path(path, "manifest.yaml")
         if not self._manifest.is_file():
-            self._manifest = Path(path, 'manifest.json')
+            self._manifest = Path(path, "manifest.json")
         if not self._manifest.is_file():
-            raise FileNotFoundError(f"Couldn't locate manifest file for plugin at path: {str(path)}")
+            raise FileNotFoundError(
+                f"Couldn't locate manifest file for plugin at path: {str(path)}"
+            )
 
         # Load the manifest data
-        self.load_manifest() if self._manifest.suffix.lower() != '.json' else self.load_manifest_json()
+        self.load_manifest() if self._manifest.suffix.lower() != ".json" else self.load_manifest_json()
 
         # Attempt to load this plugin's module
         self.load_module()
@@ -502,7 +565,7 @@ class AppPlugin:
     """
 
     @cached_property
-    def template_map(self) -> dict[str, 'AppTemplate']:
+    def template_map(self) -> dict[str, "AppTemplate"]:
         """dict[str, AppTemplate]: A dictionary mapping of AppTemplate's by file name pulled from this plugin."""
         return {}
 
@@ -510,25 +573,29 @@ class AppPlugin:
     * Pathing
     """
 
+    @property
+    def root(self) -> Path:
+        return self._root
+
     @cached_property
     def path_config(self) -> Path:
         """Path: Path to this plugin's config directory."""
-        return Path(self._root, 'config')
+        return Path(self._root, "config")
 
     @cached_property
     def path_ini(self) -> Path:
         """Path: Path to this plugin's INI config directory."""
-        return Path(self._root, 'config_ini')
+        return Path(self._root, "config_ini")
 
     @cached_property
     def path_img(self) -> Path:
         """Path: Path to this plugin's preview image directory."""
-        return Path(self._root, 'img')
+        return Path(self._root, "img")
 
     @cached_property
     def path_templates(self) -> Path:
         """Path: Path to this plugin's templates directory."""
-        return self._root / 'templates'
+        return self._root / "templates"
 
     """
     * Plugin Metadata
@@ -537,31 +604,31 @@ class AppPlugin:
     @cached_property
     def name(self) -> str:
         """str: Displayed name of the plugin. Fallback on root directory name."""
-        return self._info.get('name', self._root.stem)
+        return self._info.get("name", self._root.stem)
 
     @cached_property
     def author(self) -> str:
         """str: Displayed name of the plugin's author. Fallback on name."""
-        return self._info.get('author', self.name)
+        return self._info.get("author", self.name)
 
     @cached_property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """Optional[str]: Displayed description of the plugin. Fallback on None."""
-        return self._info.get('desc', None)
+        return self._info.get("desc", None)
 
     @cached_property
-    def source(self) -> Optional[yarl.URL]:
+    def source(self) -> yarl.URL | None:
         """Optional[URL]: Link to the hosted files of this plugin."""
-        if url := self._info.get('source'):
+        if url := self._info.get("source"):
             with suppress(Exception):
                 url = yarl.URL(url)
                 return url
         return
 
     @cached_property
-    def docs(self) -> Optional[yarl.URL]:
+    def docs(self) -> yarl.URL | None:
         """Optional[URL]: Link to the hosted documentation for this plugin."""
-        if url := self._info.get('docs'):
+        if url := self._info.get("docs"):
             with suppress(Exception):
                 url = yarl.URL(url)
                 return url
@@ -570,31 +637,35 @@ class AppPlugin:
     @cached_property
     def license(self) -> str:
         """str: Name of the open source license carried by this plugin. Fallback on MPL-2.0."""
-        return self._info.get('license', 'MPL-2.0')
+        return self._info.get("license", "MPL-2.0")
 
     @cached_property
-    def required_version(self) -> Optional[str]:
+    def required_version(self) -> str | None:
         """Optional[str]: Proxyshop version this plugin requires to function as intended."""
-        return self._info.get('requires', None)
+        return self._info.get("requires", None)
 
     @cached_property
     def version(self) -> str:
         """str: Current version of the plugin."""
-        return self._info.get('version', '0.1.0')
+        return self._info.get("version", "0.1.0")
 
     """
     * Module Details
     """
 
+    @property
+    def module(self) -> ModuleType | None:
+        return self._module
+
     @cached_property
     def module_path(self) -> Path:
         """Path: The path to this plugin's Python module."""
-        return Path(self._root, 'py')
+        return Path(self._root, "py")
 
     @cached_property
     def module_name(self) -> str:
         """str: The name of this plugin's Python module, e.g. 'plugins.MyPlugin.py'."""
-        return f'{self._root.name}.py'
+        return f"{self._root.name}.py"
 
     """
     * Plugin Methods
@@ -609,10 +680,12 @@ class AppPlugin:
         try:
             # Load plugin metadata and template details
             data = load_data_file(self._manifest)
-            self._info: PluginMetadata = data.pop('PLUGIN', {})
+            self._info: PluginMetadata = data.pop("PLUGIN", {})
             self._templates: dict[str, ManifestTemplateDetails] = data.copy()
         except Exception as e:
-            raise ValueError(f'Manifest file contains invalid data: {str(self._manifest)}') from e
+            raise ValueError(
+                f"Manifest file contains invalid data: {str(self._manifest)}"
+            ) from e
 
     def load_manifest_json(self) -> None:
         """Load the legacy `manifest.json` data for this plugin.
@@ -623,10 +696,12 @@ class AppPlugin:
         try:
             # Load Plugin metadata
             data = load_data_file(self._manifest)
-            self._info: PluginMetadata = data.pop('PLUGIN', {})
+            self._info: PluginMetadata = data.pop("PLUGIN", {})
             templates: dict[str, dict[str, dict[str, str]]] = data.copy()
         except Exception as e:
-            raise ValueError(f'Manifest file contains invalid data: {str(self._manifest)}') from e
+            raise ValueError(
+                f"Manifest file contains invalid data: {str(self._manifest)}"
+            ) from e
 
         # Re-format templates dict for TemplateDetails
         self._templates: dict[str, ManifestTemplateDetails] = {}
@@ -635,26 +710,26 @@ class AppPlugin:
                 continue
             for name, details in temps.items():
                 # Add new file
-                file_name = details.get('file', '')
-                class_name = details.get('class', '')
+                file_name = details.get("file", "")
+                class_name = details.get("class", "")
                 self._templates.setdefault(
-                    file_name, {
-                        'file': file_name,
-                        'templates': {}
-                    })
+                    file_name, {"file": file_name, "templates": {}}
+                )
                 # Add Google Drive ID
-                if details.get('id'):
-                    self._templates[file_name]['id'] = details['id']
+                if details.get("id"):
+                    self._templates[file_name]["id"] = details["id"]
                 # Existing name
-                if name in self._templates[file_name]['templates']:
+                if name in self._templates[file_name]["templates"]:
                     # Existing class name
-                    if class_name in self._templates[file_name]['templates'][name]:
-                        self._templates[file_name]['templates'][name][class_name].append(t)
+                    if class_name in self._templates[file_name]["templates"][name]:
+                        self._templates[file_name]["templates"][name][
+                            class_name
+                        ].append(t)
                         continue
                     # Add new class
-                    self._templates[file_name]['templates'][name][class_name] = [t]
+                    self._templates[file_name]["templates"][name][class_name] = [t]
                 # Add new template
-                self._templates[file_name]['templates'][name] = {class_name: [t]}
+                self._templates[file_name]["templates"][name] = {class_name: [t]}
 
     def load_templates(self) -> None:
         """Load the dictionary of AppTemplate's pulled from this plugin's manifest file.
@@ -663,12 +738,10 @@ class AppPlugin:
             A dictionary where keys are PSD/PSB filenames and values are AppTemplate objects.
         """
         for file_name, data in self._templates.items():
-            data['file'] = file_name
+            data["file"] = file_name
             self.template_map[file_name] = AppTemplate(
-                con=self.con,
-                env=self.env,
-                data=data,
-                plugin=self)
+                con=self.con, env=self.env, data=data, plugin=self
+            )
 
     def load_module(self, hotswap: bool = False) -> None:
         """Load the plugin's Python module."""
@@ -678,30 +751,28 @@ class AppPlugin:
             self.module_path.mkdir(mode=777, parents=True, exist_ok=True)
 
         # Check if root has init
-        root_init = self._root / '__init__.py'
+        root_init = self._root / "__init__.py"
         has_root_init = bool(root_init.is_file())
         if not has_root_init:
-            with open(root_init, 'w', encoding='utf-8') as f:
-                f.write('')
-        import_module_from_path(
-            name=self._root.stem,
-            path=root_init,
-            hotswap=hotswap)
+            with open(root_init, "w", encoding="utf-8") as f:
+                f.write("")
+        import_module_from_path(name=self._root.stem, path=root_init, hotswap=hotswap)
         if not has_root_init:
             os.remove(root_init)
 
         # Ensure init file in py module
-        if not Path(self.module_path, '__init__.py').is_file():
-            with open(Path(self.module_path, '__init__.py'), 'w', encoding='utf-8') as f:
-                f.write('from .templates import *')
+        if not Path(self.module_path, "__init__.py").is_file():
+            with open(
+                Path(self.module_path, "__init__.py"), "w", encoding="utf-8"
+            ) as f:
+                f.write("from .templates import *")
 
         # Attempt to load this module
         self._module = import_package(
-            name=self.module_name,
-            path=self.module_path,
-            hotswap=hotswap)
+            name=self.module_name, path=self.module_path, hotswap=hotswap
+        )
 
-    def get_template_list(self) -> list['AppTemplate']:
+    def get_template_list(self) -> list["AppTemplate"]:
         """list[AppTemplate]: Returns a list of AppTemplate's pulled from this plugin."""
         return list(self.template_map.values())
 
@@ -722,27 +793,31 @@ class AppTemplate:
     """
 
     def __init__(
-            self,
-            con: AppConstants,
-            env: AppEnvironment,
-            data: ManifestTemplateDetails,
-            plugin: Optional[AppPlugin] = None):
-
+        self,
+        con: AppConstants,
+        env: AppEnvironment,
+        data: ManifestTemplateDetails,
+        plugin: AppPlugin | None = None,
+    ):
         # Save a reference to the global application constants
         self.con: AppConstants = con
         self.env: AppEnvironment = env
 
         # Save the template's plugin and class map
-        self.plugin: Optional[AppPlugin] = plugin
+        self.plugin: AppPlugin | None = plugin
         self.manifest_map: ManifestTemplateMap = {
-            name: ({mapped: ['normal']} if isinstance(mapped, str) else {
-                k: ([v] if isinstance(v, str) else v) for k, v in mapped.items()
-            }) for name, mapped in data['templates'].items()}
+            name: (
+                {str(mapped): ["normal"]}
+                if isinstance(mapped, str)
+                else {k: ([v] if isinstance(v, str) else v) for k, v in mapped.items()}
+            )
+            for name, mapped in data["templates"].items()
+        }
         self.generate_template_map(self.manifest_map)
 
         # Save the template's metadata
         self._info: TemplateMetadata = data.copy()
-        self._info.pop('templates')
+        self._info.pop("templates")
 
     """
     * Template Mappings
@@ -750,20 +825,20 @@ class AppTemplate:
 
     def generate_template_map(self, _map: ManifestTemplateMap) -> None:
         """Generates a TemplateTypeMap, the configuration of types mapped to names mapped to details:
-            - 'class_name': python class name
-            - 'config': ConfigManager object
-            - 'object': AppTemplate object
+        - 'class_name': python class name
+        - 'config': ConfigManager object
+        - 'object': AppTemplate object
         """
         mapped: TemplateTypeMap = {}
-        configs = {}
+        configs: dict[str, ConfigManager] = {}
         for name, classes in _map.items():
             for class_name, types in classes.items():
                 for t in types:
-
                     # Reuse ConfigManager object for identical class names
                     if class_name not in configs:
                         configs[class_name] = ConfigManager(
-                            template_class=class_name, template=self)
+                            template_class=class_name, template=self
+                        )
 
                     # Add to the map
                     mapped.setdefault(t, {})
@@ -771,7 +846,8 @@ class AppTemplate:
                         name=name,
                         class_name=class_name,
                         config=configs[class_name],
-                        object=self)
+                        object=self,
+                    )
 
         # Establish the complete map
         self.map = mapped
@@ -783,28 +859,28 @@ class AppTemplate:
     @cached_property
     def name(self) -> str:
         """str: Name of the template displayed in download manager menus."""
-        return self._info.get('name', self.generate_template_name())
+        return self._info.get("name", self.generate_template_name())
 
     @cached_property
     def file_name(self) -> str:
         """str: File name of the template PSD/PSB file."""
-        file_name = self._info.get('file')
+        file_name = self._info.get("file")
         if not file_name:
             raise ValueError(f"Template '{self.name}' did not provide a file name!")
         return file_name
 
     @cached_property
-    def google_drive_id(self) -> Optional[str]:
+    def google_drive_id(self) -> str | None:
         """Optional[str]: The template's Google Drive file ID, fallback to None."""
-        return self._info.get('id', None)
+        return self._info.get("id", None)
 
     @cached_property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """Optional[str]: The template's displayed description, fallback to None."""
-        return self._info.get('desc', None)
+        return self._info.get("desc", None)
 
     @property
-    def version(self) -> Optional[str]:
+    def version(self) -> str | None:
         """Optional[str]: The template's currently logged version."""
         if not self.google_drive_id:
             return
@@ -821,19 +897,19 @@ class AppTemplate:
         return {}
 
     @property
-    def update_file(self) -> Optional[str]:
+    def update_file(self) -> str | None:
         """Optional[str]: Returns the filename of the fetched updated version of this template."""
-        return self._update.get('name')
+        return self._update.get("name")
 
     @property
-    def update_size(self) -> Optional[int]:
+    def update_size(self) -> int | None:
         """Optional[int]: Returns the size in bytes of the fetched updated version of this template."""
-        return self._update.get('size')
+        return self._update.get("size")
 
     @property
-    def update_version(self) -> Optional[str]:
+    def update_version(self) -> str | None:
         """Optional[str]: Returns the version number of the fetched updated version of this template."""
-        return self._update.get('version')
+        return self._update.get("version")
 
     """
     * Boolean Properties
@@ -845,7 +921,7 @@ class AppTemplate:
         # Todo: Add version checking
         if not self.path_psd.is_file():
             return False
-        for required_template in self.requirements.get('templates', []):
+        for required_template in self.requirements.get("templates", []):
             if not Path(self.path_psd.parent, required_template).is_file():
                 return False
         return True
@@ -863,10 +939,10 @@ class AppTemplate:
     @cached_property
     def path_7z(self) -> Path:
         """Path: Path to the 7z archive downloaded for this plugin."""
-        return self.path_psd.with_suffix('.7z')
+        return self.path_psd.with_suffix(".7z")
 
     @property
-    def path_download(self) -> Optional[Path]:
+    def path_download(self) -> Path | None:
         """Optional[Path]: Path the file should be saved to when downloaded, if update ready."""
         if self.update_file:
             root = self.plugin.path_templates if self.plugin else PATH.TEMPLATES
@@ -880,33 +956,33 @@ class AppTemplate:
     @property
     def requirements(self) -> TemplateRequirements:
         """TemplateRequirements: Requirements that must be met for this template to be supported."""
-        return self._info.get('requires', {})
+        return self._info.get("requires", {})
 
     """
     * Template URLs
     """
 
     @property
-    def url_amazon(self) -> Optional[yarl.URL]:
+    def url_amazon(self) -> yarl.URL | None:
         """yarl.URL: Amazon download URL for this template."""
         if self.env.API_AMAZON and self.update_file:
             with suppress(Exception):
                 base = yarl.URL(self.env.API_AMAZON)
                 # Add plugin name to URL
                 if self.plugin:
-                    base = base / self.plugin._root.name
+                    base = base / self.plugin.root.name
                 return base / self.update_file
         return
 
     @property
-    def url_google_drive(self) -> Optional[yarl.URL]:
+    def url_google_drive(self) -> yarl.URL | None:
         """yarl.URL: Google Drive download URL for this template."""
         if self.env.API_GOOGLE and self.update_file and self.google_drive_id:
             with suppress(Exception):
                 # Return Google Drive URL with file ID
-                return yarl.URL(
-                    'https://drive.google.com/uc'
-                ).with_query({'id': self.google_drive_id})
+                return yarl.URL("https://drive.google.com/uc").with_query(
+                    {"id": self.google_drive_id}
+                )
         return
 
     """
@@ -916,11 +992,14 @@ class AppTemplate:
     @cached_property
     def types_supported(self) -> list[str]:
         """set[str]: A set of all types supported by this template."""
-        return list({
-            t for class_map in self.manifest_map.values()
-            for types in class_map.values()
-            for t in types
-        })
+        return list(
+            {
+                t
+                for class_map in self.manifest_map.values()
+                for types in class_map.values()
+                for t in types
+            }
+        )
 
     @cached_property
     def all_names(self) -> list[str]:
@@ -930,7 +1009,13 @@ class AppTemplate:
     @cached_property
     def all_classes(self) -> list[str]:
         """set[str]: A set of all python classes used by this template."""
-        return list({cls_name for class_map in self.manifest_map.values() for cls_name in class_map.keys()})
+        return list(
+            {
+                cls_name
+                for class_map in self.manifest_map.values()
+                for cls_name in class_map.keys()
+            }
+        )
 
     """
     * Template Utils
@@ -950,8 +1035,8 @@ class AppTemplate:
         if not self.plugin:
             try:
                 module = get_local_module(
-                    module_path='src.templates',
-                    hotswap=self.env.FORCE_RELOAD)
+                    module_path="src.templates", hotswap=self.env.FORCE_RELOAD
+                )
                 return getattr(module, class_name)
             except Exception as e:
                 # Failed to load module
@@ -962,7 +1047,7 @@ class AppTemplate:
         try:
             if self.env.FORCE_RELOAD:
                 self.plugin.load_module(hotswap=True)
-            return getattr(self.plugin._module, class_name)
+            return getattr(self.plugin.module, class_name)
         except Exception as e:
             # Failed to load module
             print_tb(e.__traceback__)
@@ -973,17 +1058,20 @@ class AppTemplate:
 
         # Use first name on the list and look for types supported for that name
         name = self.all_names[0]
-        supported = self.types_supported.copy() if len(self.all_names) == 1 else {
-            t for types in self.manifest_map[name].values() for t in types}
-        if 'normal' in supported:
-            supported.remove('normal')
+        supported = (
+            self.types_supported.copy()
+            if len(self.all_names) == 1
+            else {t for types in self.manifest_map[name].values() for t in types}
+        )
+        if "normal" in supported:
+            supported.remove("normal")
 
         # When 'normal' type is present, just use the name
         if not supported:
             return self.all_names[0]
 
         # Format types into display names
-        cats = set()
+        cats: set[str] = set()
         for cat, types in layout_map_display_condition_dual.items():
             # Add both face types
             if all([n in supported for n in types]):
@@ -1011,24 +1099,27 @@ class AppTemplate:
             True if Template needs to be updated, otherwise False.
         """
         # Get our metadata
-        data = gdrive_get_metadata(self.google_drive_id, self.env.API_GOOGLE)
-        if not data:
+        if not self.google_drive_id or not (
+            data := gdrive_get_metadata(self.google_drive_id, self.env.API_GOOGLE)
+        ):
             # File couldn't be located on Google Drive
             print(f"{self.name} ({self.file_name}) not found on Google Drive!")
             return False
 
         # Cache update data
-        self._update: TemplateUpdate = {
-            'version': data.get('description', 'v1.0.0'),
-            'name': data.get('name', self.file_name),
-            'size': data['size']
+        self._update = {
+            "version": data.get("description", "v1.0.0"),
+            "name": data.get("name", self.file_name),
+            "size": data["size"],
         }
 
         # Compare the versions
         self.validate_version()
         if not self.version:
             return True
-        if normalize_ver(self.version) == normalize_ver(self.update_version):
+        if self.update_version and normalize_ver(self.version) == normalize_ver(
+            self.update_version
+        ):
             return False
 
         # Template needs an update
@@ -1037,19 +1128,19 @@ class AppTemplate:
     def validate_version(self) -> None:
         """Checks the current on-file version of this template and if the template is installed,
         updates the version tracker accordingly."""
+        if self.google_drive_id:
+            # If installed but version is not logged, log default version
+            if self.is_installed and not self.version:
+                self.con.versions[self.google_drive_id] = "1.0.0"
+                self.con.update_version_tracker()
+                return
 
-        # If installed but version is not logged, log default version
-        if self.is_installed and not self.version:
-            self.con.versions[self.google_drive_id] = '1.0.0'
-            self.con.update_version_tracker()
-            return
+            # If installed but version mistakenly logged, reset
+            if not self.is_installed and self.version:
+                del self.con.versions[self.google_drive_id]
+                self.con.update_version_tracker()
 
-        # If installed but version mistakenly logged, reset
-        if not self.is_installed and self.version:
-            del self.con.versions[self.google_drive_id]
-            self.con.update_version_tracker()
-
-    def update_template(self, callback: Callable) -> bool:
+    def update_template(self, callback: Callable[[int, int], None]) -> bool:
         """Update a given template to the latest version.
 
         Args:
@@ -1058,36 +1149,49 @@ class AppTemplate:
         Returns:
             True if succeeded, False if failed.
         """
-        try:
+        if self.path_download:
+            try:
+                result: bool = False
 
-            # Download using Google Drive
-            result = gdrive_download_file(
-                url=self.url_google_drive,
-                path=self.path_download,
-                path_cookies=PATH.LOGS_COOKIES,
-                callback=callback
-            ) if self.google_drive_id else False
+                if self.google_drive_id and self.url_google_drive:
+                    # Download using Google Drive
+                    result = bool(
+                        gdrive_download_file(
+                            url=self.url_google_drive,
+                            path=self.path_download,
+                            path_cookies=PATH.LOGS_COOKIES,
+                            callback=callback,
+                        )
+                    )
 
-            # Google Drive failed or isn't an option, download from Amazon S3
-            if not result:
-                result = download_cloudfront(
-                    url=self.url_amazon,
-                    path=self.path_download,
-                    callback=callback)
-            
-            # If downloaded file is a 7z archive, extract the template from it
-            if self.path_download.suffix == ".7z":
-                with SevenZipFile(self.path_7z, "r") as archive:
-                    root = self.plugin.path_templates if self.plugin else PATH.TEMPLATES
-                    archive.extractall(root)
-                self.path_7z.unlink()
+                if self.url_amazon:
+                    # Google Drive failed or isn't an option, download from Amazon S3
+                    if not result:
+                        result = download_cloudfront(
+                            url=self.url_amazon,
+                            path=self.path_download,
+                            callback=callback,
+                        )
 
-            # Return result status
-            return result
+                # If downloaded file is a 7z archive, extract the template from it
+                if result and self.path_download.suffix == ".7z":
+                    with SevenZipFile(self.path_7z, "r") as archive:
+                        root = (
+                            self.plugin.path_templates
+                            if self.plugin
+                            else PATH.TEMPLATES
+                        )
+                        archive.extractall(root)
+                    self.path_7z.unlink()
 
-        # Exception caught while downloading / unpacking
-        except Exception as e:
-            print(f"Failed to update template: {self.name}", e, format_exc())
+                # Return result status
+                return result
+
+            # Exception caught while downloading / unpacking
+            except Exception as e:
+                print(f"Failed to update template: {self.name}", e, format_exc())
+        else:
+            print("Template update failed. Download path isn't specified.")
         return False
 
     def mark_updated(self) -> None:
@@ -1115,8 +1219,8 @@ class AppTemplate:
         root = self.plugin.path_img if self.plugin else PATH.SRC_IMG_PREVIEWS
 
         # Try with type provided, then with just the class name, fallback to "Not Found" image
-        path = (root / f'{class_name}[{class_type}]').with_suffix('.jpg')
-        path = path if path.is_file() else (root / f'{class_name}').with_suffix('.jpg')
+        path = (root / f"{class_name}[{class_type}]").with_suffix(".jpg")
+        path = path if path.is_file() else (root / f"{class_name}").with_suffix(".jpg")
         return path if path.is_file() else PATH.SRC_IMG_NOTFOUND
 
     def get_path_config(self, class_name: str) -> Path:
@@ -1130,13 +1234,13 @@ class AppTemplate:
         """
         # Get plugin template config
         if self.plugin:
-            json_path = (self.plugin.path_config / class_name).with_suffix('.json')
+            json_path = (self.plugin.path_config / class_name).with_suffix(".json")
             if json_path.is_file():
                 return json_path
-            return json_path.with_suffix('.toml')
+            return json_path.with_suffix(".toml")
 
         # Get app template config
-        return (PATH.SRC_DATA_CONFIG / class_name).with_suffix('.toml')
+        return (PATH.SRC_DATA_CONFIG / class_name).with_suffix(".toml")
 
     def get_path_ini(self, class_name: str) -> Path:
         """Gets the path to an INI config file for a given template class.
@@ -1149,8 +1253,8 @@ class AppTemplate:
         """
         # Is this a plugin template?
         if self.plugin:
-            return (self.plugin.path_ini / class_name).with_suffix('.ini')
-        return (PATH.SRC_DATA_CONFIG_INI / class_name).with_suffix('.ini')
+            return (self.plugin.path_ini / class_name).with_suffix(".ini")
+        return (PATH.SRC_DATA_CONFIG_INI / class_name).with_suffix(".ini")
 
 
 """
@@ -1172,7 +1276,7 @@ def get_all_plugins(con: AppConstants, env: AppEnvironment) -> dict[str, AppPlug
 
     # Load all plugins and plugin templates
     for folder in [p for p in PATH.PLUGINS.iterdir() if p.is_dir()]:
-        if folder.stem.startswith('__') or folder.stem.startswith('!'):
+        if folder.stem.startswith("__") or folder.stem.startswith("!"):
             continue
         try:
             plugin = AppPlugin(con=con, env=env, path=folder)
@@ -1188,7 +1292,9 @@ def get_all_plugins(con: AppConstants, env: AppEnvironment) -> dict[str, AppPlug
 """
 
 
-def get_all_templates(con: AppConstants, env: AppEnvironment, plugins: dict[str, AppPlugin]) -> list[AppTemplate]:
+def get_all_templates(
+    con: AppConstants, env: AppEnvironment, plugins: dict[str, AppPlugin]
+) -> list[AppTemplate]:
     """Gets a list of all 'AppTemplate' objects.
 
     Args:
@@ -1203,11 +1309,13 @@ def get_all_templates(con: AppConstants, env: AppEnvironment, plugins: dict[str,
     templates: list[AppTemplate] = []
 
     # Load the built-in templates
-    manifest: dict[str, ManifestTemplateDetails] = load_data_file(PATH.SRC_DATA_MANIFEST)
+    manifest: dict[str, ManifestTemplateDetails] = load_data_file(
+        PATH.SRC_DATA_MANIFEST
+    )
 
     # Build a TemplateDetails for each template
     for file_name, data in manifest.items():
-        data['file'] = file_name
+        data["file"] = file_name
         templates.append(AppTemplate(con=con, env=env, data=data))
 
     # Load all plugins and plugin templates
@@ -1227,8 +1335,9 @@ def get_template_map(templates: list[AppTemplate]) -> dict[str, TemplateCategory
     """
     # Establish our core category map
     d: dict[str, TemplateCategoryMap] = {
-        type_named: {'names': [], 'map': {}}
-        for type_named in layout_map_category.keys()}
+        type_named: {"names": [], "map": {}}
+        for type_named in layout_map_category.keys()
+    }
 
     # Track names for uniqueness
     names: dict[str, list[str]] = {}
@@ -1244,7 +1353,7 @@ def get_template_map(templates: list[AppTemplate]) -> dict[str, TemplateCategory
                 # Ensure name is unique
                 if name in names.get(t, []):
                     # Add plugin to name if plugin provided
-                    if details['object'].plugin:
+                    if details["object"].plugin:
                         # Swap this objects name
                         name = f"{name} ({details['object'].plugin.name})"
 
@@ -1254,18 +1363,18 @@ def get_template_map(templates: list[AppTemplate]) -> dict[str, TemplateCategory
                         name, i = f"{n} ({i})", i + 1
 
                 # Add template to map and tracked names
-                d[cat]['map'].setdefault(t, {})[name] = details
-                if name not in d[cat]['names']:
-                    d[cat]['names'].append(name)
+                d[cat]["map"].setdefault(t, {})[name] = details
+                if name not in d[cat]["names"]:
+                    d[cat]["names"].append(name)
                 names.setdefault(t, []).append(name)
 
     # Sort names
     for t, tcm in d.items():
-        sorted_names = []
-        if 'Normal' in tcm['names']:
-            sorted_names.append('Normal')
-            tcm['names'].remove('Normal')
-        d[t]['names'] = [*sorted_names, *sorted(tcm['names'])]
+        sorted_names: list[str] = []
+        if "Normal" in tcm["names"]:
+            sorted_names.append("Normal")
+            tcm["names"].remove("Normal")
+        d[t]["names"] = [*sorted_names, *sorted(tcm["names"])]
     return d
 
 
@@ -1280,26 +1389,26 @@ def get_template_map_defaults(d: dict[str, TemplateCategoryMap]) -> TemplateSele
     """
     sel: TemplateSelectedMap = {t: None for t in layout_map_types.keys()}
     first_items: dict[str, TemplateDetails] = {}
-    for cat, tcm in d.items():
-        for t, name_map in tcm['map'].items():
+    for template_category_map in d.values():
+        for template, name_map in template_category_map["map"].items():
             for name, details in name_map.items():
-                if t not in first_items:
-                    first_items[t] = details
-                if sel.get(t):
+                if template not in first_items:
+                    first_items[template] = details
+                if sel.get(template):
                     continue
-                if name == 'Normal':
-                    sel[t] = details.copy()
+                if name == "Normal":
+                    sel[template] = details.copy()
 
     # Ensure each type has a value, fallback on 'first' appearing items
-    for t, details in sel.items():
+    for template, details in sel.items():
         if not details:
-            sel[t] = first_items.get(t, {}).copy()
+            if first_item := first_items.get(template):
+                sel[template] = first_item.copy()
     return sel
 
 
 def get_template_map_selected(
-    selected: TemplateSelectedMap,
-    defaults: TemplateSelectedMap
+    selected: TemplateSelectedMap, defaults: TemplateSelectedMap
 ) -> TemplateSelectedMap:
     """Merges the template's selected by the users with a provided mapping of default templates.
 
@@ -1312,7 +1421,7 @@ def get_template_map_selected(
     """
     combined = defaults.copy()
     for layout, details in selected.items():
-        combined[layout] = details.copy()
+        combined[layout] = details.copy() if details else details
     return combined
 
 
@@ -1335,7 +1444,7 @@ def check_for_updates(templates: list[AppTemplate]) -> list[AppTemplate]:
 
     # Perform threaded version check requests
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        results: list[tuple[Future, AppTemplate]] = []
+        results: list[tuple[Future[bool], AppTemplate]] = []
 
         # Check each template for updates
         for t in templates:

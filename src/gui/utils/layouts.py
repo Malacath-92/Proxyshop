@@ -152,7 +152,7 @@ class DynamicTabPanel(TabbedPanel):
         elif isinstance(widget, DynamicTabHeader):
             self_tabs = self._tab_strip
             self_tabs.add_widget(widget, *args, **kwargs)
-            widget.group = '__tab%r__' % self_tabs.uid
+            widget.group = f'__tab{self_tabs.uid!r}__'
             self.on_tab_width()
         else:
             widget.pos_hint = {'x': 0, 'top': 1}
@@ -207,7 +207,7 @@ class DynamicTabPanel(TabbedPanel):
             default_tab.text = self.default_tab_text
 
         default_tab.height = self.tab_height
-        default_tab.group = '__tab%r__' % _tabs.uid
+        default_tab.group = f'__tab{_tabs.uid!r}__'
         default_tab.state = 'down'
         default_tab.width = self.tab_width if self.tab_width else 100
         default_tab.content = content

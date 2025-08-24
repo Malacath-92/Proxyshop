@@ -3,14 +3,12 @@
 * Credit to Chilli: https://tinyurl.com/chilli-frame-logic-tests
 """
 # Standard Library Imports
-import os
 from multiprocessing import cpu_count
 from concurrent.futures import (
     ThreadPoolExecutor as Pool,
     as_completed,
     Future)
 from pathlib import Path
-from typing import Optional
 
 # Third Part Imports
 from tqdm import tqdm
@@ -63,7 +61,7 @@ def format_result(layout: CardLayout) -> FrameData:
 """
 
 
-def test_case(card_name: str, card_data: FrameData) -> Optional[tuple[str, FrameData, FrameData]]:
+def test_case(card_name: str, card_data: FrameData) -> tuple[str, FrameData, FrameData] | None:
     """Test frame logic for a target test case.
 
     Args:

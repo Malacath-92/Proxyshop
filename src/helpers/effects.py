@@ -2,7 +2,6 @@
 * Helpers: Layer Effects
 """
 # Standard Library Imports
-from typing import Union, Optional
 
 # Third Party Imports
 from photoshop.api import DialogModes, ActionDescriptor, ActionReference, ActionList
@@ -25,7 +24,7 @@ NO_DIALOG = DialogModes.DisplayNoDialogs
 """
 
 
-def set_fill_opacity(opacity: float, layer: Optional[Union[ArtLayer, LayerSet]]) -> None:
+def set_fill_opacity(opacity: float, layer: ArtLayer | LayerSet | None) -> None:
     """Sets the fill opacity of a given layer.
 
     Args:
@@ -40,10 +39,10 @@ def set_fill_opacity(opacity: float, layer: Optional[Union[ArtLayer, LayerSet]])
     d = ActionDescriptor()
     ref = ActionReference()
     d1 = ActionDescriptor()
-    ref.PutEnumerated(sID("layer"), sID("ordinal"), sID("targetEnum"))
-    d.PutReference(sID("target"),  ref)
-    d1.PutUnitDouble(sID("fillOpacity"), sID("percentUnit"), opacity)
-    d.PutObject(sID("to"), sID("layer"),  d1)
+    ref.putEnumerated(sID("layer"), sID("ordinal"), sID("targetEnum"))
+    d.putReference(sID("target"),  ref)
+    d1.putUnitDouble(sID("fillOpacity"), sID("percentUnit"), opacity)
+    d.putObject(sID("to"), sID("layer"),  d1)
     APP.executeAction(sID("set"), d, NO_DIALOG)
 
 
@@ -52,7 +51,7 @@ def set_fill_opacity(opacity: float, layer: Optional[Union[ArtLayer, LayerSet]])
 """
 
 
-def set_layer_fx_visibility(layer: Optional[Union[ArtLayer, LayerSet]] = None, visible: bool = True) -> None:
+def set_layer_fx_visibility(layer: ArtLayer | LayerSet | None = None, visible: bool = True) -> None:
     """Shows or hides the layer effects on a given layer.
 
     Args:
@@ -74,7 +73,7 @@ def set_layer_fx_visibility(layer: Optional[Union[ArtLayer, LayerSet]] = None, v
     APP.executeAction(sID("show" if visible else "hide"), desc, NO_DIALOG)
 
 
-def enable_layer_fx(layer: Optional[Union[ArtLayer, LayerSet]] = None) -> None:
+def enable_layer_fx(layer: ArtLayer | LayerSet | None = None) -> None:
     """Utility definition for `change_fx_visibility` to enable effects on layer.
 
     Args:
@@ -83,7 +82,7 @@ def enable_layer_fx(layer: Optional[Union[ArtLayer, LayerSet]] = None) -> None:
     set_layer_fx_visibility(layer, True)
 
 
-def disable_layer_fx(layer: Optional[Union[ArtLayer, LayerSet]] = None) -> None:
+def disable_layer_fx(layer: ArtLayer | LayerSet | None = None) -> None:
     """Utility definition for `change_fx_visibility` to disable effects on layer.
 
     Args:
@@ -92,7 +91,7 @@ def disable_layer_fx(layer: Optional[Union[ArtLayer, LayerSet]] = None) -> None:
     set_layer_fx_visibility(layer, False)
 
 
-def clear_layer_fx(layer: Union[ArtLayer, LayerSet, None]) -> None:
+def clear_layer_fx(layer: ArtLayer | LayerSet | None) -> None:
     """Removes all layer style effects.
 
     Args:
@@ -107,7 +106,7 @@ def clear_layer_fx(layer: Union[ArtLayer, LayerSet, None]) -> None:
         desc1600.putReference(sID("target"), ref126)
         APP.executeAction(sID("disableLayerStyle"), desc1600, NO_DIALOG)
     except Exception as e:
-        print(e, f'\nLayer "{layer.name}" has no effects!')
+        print(e, f"""\nLayer "{layer.name if layer else '<no_layer_provided>'}" has no effects!""")
 
 
 def rasterize_layer_fx(layer: ArtLayer) -> None:
@@ -124,7 +123,7 @@ def rasterize_layer_fx(layer: ArtLayer) -> None:
     APP.executeAction(sID("rasterizeLayer"), desc1, NO_DIALOG)
 
 
-def copy_layer_fx(from_layer: Union[ArtLayer, LayerSet], to_layer: Union[ArtLayer, LayerSet]) -> None:
+def copy_layer_fx(from_layer: ArtLayer | LayerSet, to_layer: ArtLayer | LayerSet) -> None:
     """Copies the layer effects from one layer to another layer.
 
     Args:
@@ -153,7 +152,7 @@ def copy_layer_fx(from_layer: Union[ArtLayer, LayerSet], to_layer: Union[ArtLaye
 """
 
 
-def apply_fx(layer: Union[ArtLayer, LayerSet], effects: list[LayerEffects]) -> None:
+def apply_fx(layer: ArtLayer | LayerSet, effects: list[LayerEffects]) -> None:
     """Apply multiple layer effects to a layer.
 
     Args:
@@ -179,7 +178,7 @@ def apply_fx(layer: Union[ArtLayer, LayerSet], effects: list[LayerEffects]) -> N
             apply_fx_drop_shadow(fx_action, fx)
         elif isinstance(fx, EffectGradientOverlay):
             apply_fx_gradient_overlay(fx_action, fx)
-        elif isinstance(fx, EffectStroke):
+        else:
             apply_fx_stroke(fx_action, fx)
 
     # Apply all fx actions
@@ -195,26 +194,26 @@ def apply_fx_bevel(action: ActionDescriptor, fx: EffectBevel) -> None:
         fx: Bevel effect properties.
     """
     d1, d2 = ActionDescriptor(), ActionDescriptor()
-    d1.PutEnumerated(sID("highlightMode"), sID("blendMode"), sID("screen"))
+    d1.putEnumerated(sID("highlightMode"), sID("blendMode"), sID("screen"))
     apply_color(d1, fx.highlight_color, 'highlightColor')
-    d1.PutUnitDouble(sID("highlightOpacity"), sID("percentUnit"),  fx.highlight_opacity)
-    d1.PutEnumerated(sID("shadowMode"), sID("blendMode"), sID("multiply"))
+    d1.putUnitDouble(sID("highlightOpacity"), sID("percentUnit"),  fx.highlight_opacity)
+    d1.putEnumerated(sID("shadowMode"), sID("blendMode"), sID("multiply"))
     apply_color(d1, fx.shadow_color, 'shadowColor')
-    d1.PutUnitDouble(sID("shadowOpacity"), sID("percentUnit"),  fx.shadow_opacity)
-    d1.PutEnumerated(sID("bevelTechnique"), sID("bevelTechnique"), sID("softMatte"))
-    d1.PutEnumerated(sID("bevelStyle"), sID("bevelEmbossStyle"), sID("outerBevel"))
-    d1.PutBoolean(sID("useGlobalAngle"), fx.global_light)
-    d1.PutUnitDouble(sID("localLightingAngle"), sID("angleUnit"),  fx.rotation)
-    d1.PutUnitDouble(sID("localLightingAltitude"), sID("angleUnit"),  fx.altitude)
-    d1.PutUnitDouble(sID("strengthRatio"), sID("percentUnit"),  fx.depth)
-    d1.PutUnitDouble(sID("blur"), sID("pixelsUnit"),  fx.size)
-    d1.PutEnumerated(sID("bevelDirection"), sID("bevelEmbossStampStyle"), sID("in"))
-    d1.PutObject(sID("transferSpec"), sID("shapeCurveType"),  d2)
-    d1.PutBoolean(sID("antialiasGloss"), False)
-    d1.PutUnitDouble(sID("softness"), sID("pixelsUnit"),  fx.softness)
-    d1.PutBoolean(sID("useShape"), False)
-    d1.PutBoolean(sID("useTexture"), False)
-    action.PutObject(sID("bevelEmboss"), sID("bevelEmboss"),  d1)
+    d1.putUnitDouble(sID("shadowOpacity"), sID("percentUnit"),  fx.shadow_opacity)
+    d1.putEnumerated(sID("bevelTechnique"), sID("bevelTechnique"), sID("softMatte"))
+    d1.putEnumerated(sID("bevelStyle"), sID("bevelEmbossStyle"), sID("outerBevel"))
+    d1.putBoolean(sID("useGlobalAngle"), fx.global_light)
+    d1.putUnitDouble(sID("localLightingAngle"), sID("angleUnit"),  fx.rotation)
+    d1.putUnitDouble(sID("localLightingAltitude"), sID("angleUnit"),  fx.altitude)
+    d1.putUnitDouble(sID("strengthRatio"), sID("percentUnit"),  fx.depth)
+    d1.putUnitDouble(sID("blur"), sID("pixelsUnit"),  fx.size)
+    d1.putEnumerated(sID("bevelDirection"), sID("bevelEmbossStampStyle"), sID("in"))
+    d1.putObject(sID("transferSpec"), sID("shapeCurveType"),  d2)
+    d1.putBoolean(sID("antialiasGloss"), False)
+    d1.putUnitDouble(sID("softness"), sID("pixelsUnit"),  fx.softness)
+    d1.putBoolean(sID("useShape"), False)
+    d1.putBoolean(sID("useTexture"), False)
+    action.putObject(sID("bevelEmboss"), sID("bevelEmboss"),  d1)
 
 
 def apply_fx_color_overlay(action: ActionDescriptor, fx: EffectColorOverlay) -> None:
@@ -225,10 +224,10 @@ def apply_fx_color_overlay(action: ActionDescriptor, fx: EffectColorOverlay) -> 
         fx: Color Overlay effect properties.
     """
     d = ActionDescriptor()
-    d.PutEnumerated(sID("mode"), sID("blendMode"), sID("normal"))
+    d.putEnumerated(sID("mode"), sID("blendMode"), sID("normal"))
     apply_color(d, fx.color)
-    d.PutUnitDouble(sID("opacity"), sID("percentUnit"), fx.opacity)
-    action.PutObject(sID("solidFill"), sID("solidFill"), d)
+    d.putUnitDouble(sID("opacity"), sID("percentUnit"), fx.opacity)
+    action.putObject(sID("solidFill"), sID("solidFill"), d)
 
 
 def apply_fx_drop_shadow(action: ActionDescriptor, fx: EffectDropShadow) -> None:
@@ -287,7 +286,7 @@ def apply_fx_gradient_overlay(action: ActionDescriptor, fx: EffectGradientOverla
     d3.putInteger(sID("midpoint"),  50)
     transparency_list.putObject(sID("transferSpec"),  d3)
     d4.putUnitDouble(sID("opacity"), sID("percentUnit"),  100)
-    d4.putInteger(sID("location"),  fx.size)
+    d4.putInteger(sID("location"),  round(fx.size))
     d4.putInteger(sID("midpoint"),  50)
     transparency_list.putObject(sID("transferSpec"),  d4)
     d2.putList(sID("transparency"),  transparency_list)

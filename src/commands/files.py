@@ -3,7 +3,6 @@
 """
 # Standard Library
 from pathlib import Path
-from typing import Optional
 
 # Third Party Imports
 import click
@@ -32,7 +31,7 @@ def compress_cli():
 )
 @click.argument('template')
 @click.argument('plugin', required=False)
-def compress_template(template: str, plugin: Optional[str] = None) -> None:
+def compress_template(template: str, plugin: str | None = None) -> None:
     """Compress a template by name and optionally plugin name.
 
     Args:

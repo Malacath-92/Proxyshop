@@ -5,10 +5,10 @@
 from _ctypes import COMError
 from functools import cached_property
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable, Sequence
 
 from omnitils.strings import normalize_str
-from photoshop.api import BlendMode, ElementPlacement, SolidColor
+from photoshop.api import BlendMode, ElementPlacement
 from photoshop.api._artlayer import ArtLayer
 from photoshop.api._layerSet import LayerSet
 
@@ -16,7 +16,7 @@ import src.helpers as psd
 from src import CFG, CON
 from src.enums.layers import LAYERS
 from src.helpers import LayerEffects
-from src.helpers.colors import GradientConfig
+from src.schema.colors import GradientConfig
 from src.helpers.effects import copy_layer_fx
 from src.helpers.layers import get_reference_layer
 from src.layouts import SplitLayout
@@ -64,12 +64,7 @@ class SplitMod(BaseTemplate):
     @cached_property
     def color_limit(self) -> int:
         """One more than the max number of colors this card can split by."""
-        setting = CFG.get_setting(
-            section="COLORS", key="Max.Colors", default="2", is_bool=False
-        )
-        if isinstance(setting, str):
-            return int(setting) + 1
-        raise ValueError(f"Received invalid value for color limit: {setting}")
+        return CFG.get_int_setting(section="COLORS", key="Max.Colors", default=2) + 1
 
     # endregion Settings
 
@@ -159,7 +154,7 @@ class SplitMod(BaseTemplate):
     @cached_property
     def pinlines_colors_split(
         self,
-    ) -> list[(ColorObject | list[ColorObject] | list[GradientConfig])]:
+    ) -> list[(ColorObject | Sequence[ColorObject] | Sequence[GradientConfig])]:
         """Color definitions used for pinlines of each side."""
         if isinstance(self.layout, SplitLayout):
             return [
@@ -376,7 +371,7 @@ class SplitMod(BaseTemplate):
             if len(art_files) == 1:
                 # Manually select a second art
                 self.console.update("Please select the second split art!")
-                file: list[str] = self.app.openDialog()
+                file: list[Path] = self.app.openDialog()
                 if not file:
                     self.console.update("No art selected, cancelling render.")
                     self.console.cancel_thread(thr=self.event)
@@ -406,10 +401,10 @@ class SplitMod(BaseTemplate):
     # region Watermarks
 
     @cached_property
-    def watermarks_colors(self) -> list[list[SolidColor | list[int]]]:
+    def watermarks_colors(self) -> list[list[ColorObject]]:
         """A list of 'SolidColor' objects for each face."""
         if isinstance(self.layout, SplitLayout):
-            colors: list[list[SolidColor | list[int]]] = []
+            colors: list[list[ColorObject]] = []
             for i, pinline in enumerate(self.layout.pinline_identities):
                 if pinline in self.watermark_color_map:
                     # Named pinline colors
@@ -628,14 +623,16 @@ class SplitTemplate(SplitMod):
         # Frame layers
         for i in range(len(self.sides)):
             if (group := self.twins_groups[i]) and (layer := self.twins_layers[i]):
-                # Copy twins and position
-                layer.visible = True
-                twins = layer.parent.duplicate(group, ElementPlacement.PlaceBefore)
-                layer.visible = False
-                twins.visible = True
+                parent = layer.parent
+                if isinstance(parent, LayerSet):
+                    # Copy twins and position
+                    layer.visible = True
+                    twins = parent.duplicate(group, ElementPlacement.PlaceBefore)
+                    layer.visible = False
+                    twins.visible = True
 
-                if ref := self.twins_references[i]:
-                    psd.align_horizontal(twins, ref)
+                    if ref := self.twins_references[i]:
+                        psd.align_horizontal(twins, ref)
 
             if layer := self.background_layers[i]:
                 # Copy background and position

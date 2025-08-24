@@ -3,7 +3,6 @@
 """
 # Standard Library Imports
 from pathlib import Path
-from typing import Optional
 from time import perf_counter
 
 # Third Party Imports
@@ -99,7 +98,7 @@ def test_jpeg_compression(
         test_dpi=True,
         test_resample=True,
         test_optimize=True,
-        test_quality: Optional[list[int]] = None
+        test_quality: list[int] | None = None
 ) -> None:
     """
     Test a battery of JPEG compression settings.

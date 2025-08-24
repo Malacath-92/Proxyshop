@@ -14,7 +14,7 @@ from datetime import datetime as dt
 from functools import cached_property
 from threading import Event, Thread, Lock
 from multiprocessing import cpu_count
-from typing import Union, Optional, Callable
+from collections.abc import Callable
 
 # Third-party Imports
 import requests
@@ -137,7 +137,7 @@ class ProxyshopGUIApp(App):
             plugins: dict[str, AppPlugin],
             templates: list[AppTemplate],
             template_map: dict[str, TemplateCategoryMap],
-            templates_default: dict[str, TemplateDetails],
+            templates_default: TemplateSelectedMap,
             **kwargs
     ):
         # Call super
@@ -250,14 +250,14 @@ class ProxyshopGUIApp(App):
         return self._current_render
 
     @property
-    def docref(self) -> Optional[Document]:
+    def docref(self) -> Document | None:
         """Optional[Document]: Tracks the currently open Photoshop document."""
         if self.current_render and hasattr(self.current_render, 'docref'):
             return self.current_render.docref or None
         return None
 
     @property
-    def thread(self) -> Optional[Event]:
+    def thread(self) -> Event | None:
         """Optional[Event]: Tracks the current render threading Event."""
         if self.current_render and hasattr(self.current_render, 'event'):
             return self.current_render.event or None
@@ -403,7 +403,7 @@ class ProxyshopGUIApp(App):
     """
 
     @render_process_wrapper
-    def render_all(self, target: bool = False, files: Optional[list[Path]] = None) -> None:
+    def render_all(self, target: bool = False, files: list[Path] | None = None) -> None:
         """Render cards using all images located in the art folder.
 
         Args:
@@ -591,61 +591,62 @@ class ProxyshopGUIApp(App):
             cards = {k: v for k, v in [next(iter(cards.items()))]} if not deep else cards
             self.console.update(msg_success(f'\n— {card_type.upper()}'))
 
+            if card_type in layout_map_types:
             # Loop through templates to test
-            for name, template in self.template_map[layout_map_types[card_type]]['map'][card_type].items():
-                self.console.update(f"{template['class_name']} ... ", end="")
+                for template in self.template_map[layout_map_types[card_type]]['map'][card_type].values():
+                    self.console.update(f"{template['class_name']} ... ", end="")
 
-                # Is this template installed?
-                if not template['object'].is_installed:
-                    self.console.update(msg_warn('SKIPPED (Template not installed)'))
-                    continue
-
-                # Can this template's class be loaded?
-                loaded_class = template['object'].get_template_class(template['class_name'])
-                if not loaded_class:
-                    self.console.update(msg_error('SKIPPED (Template class failed to load)'))
-                    continue
-
-                # Load constants and config for this template
-                self.cfg.load(config=template['config'])
-                self.con.reload()
-
-                # Loop through cards to test
-                failures: list[tuple[str, str, str]] = []
-                times: list[float] = []
-                for card_name, card_case in cards.items():
-
-                    # Attempt to assign a layout
-                    layout = assign_layout(Path(card_name))
-                    if isinstance(layout, str):
-                        failures.append((card_name, card_case, 'Failed to assign layout'))
+                    # Is this template installed?
+                    if not template['object'].is_installed:
+                        self.console.update(msg_warn('SKIPPED (Template not installed)'))
                         continue
 
-                    # Grab the template class and start the render thread
-                    layout.art_file = PATH.SRC_IMG / 'test.jpg'
-                    result = self.start_render(layout, template, loaded_class)
-                    if result is None:
-                        failures.append((card_name, card_case, 'Failed to render'))
+                    # Can this template's class be loaded?
+                    loaded_class = template['object'].get_template_class(template['class_name'])
+                    if not loaded_class:
+                        self.console.update(msg_error('SKIPPED (Template class failed to load)'))
+                        continue
+
+                    # Load constants and config for this template
+                    self.cfg.load(config=template['config'])
+                    self.con.reload()
+
+                    # Loop through cards to test
+                    failures: list[tuple[str, str, str]] = []
+                    times: list[float] = []
+                    for card_name, card_case in cards.items():
+
+                        # Attempt to assign a layout
+                        layout = assign_layout(Path(card_name))
+                        if isinstance(layout, str):
+                            failures.append((card_name, card_case, 'Failed to assign layout'))
+                            continue
+
+                        # Grab the template class and start the render thread
+                        layout.art_file = PATH.SRC_IMG / 'test.jpg'
+                        result = self.start_render(layout, template, loaded_class)
+                        if result is None:
+                            failures.append((card_name, card_case, 'Failed to render'))
+                        else:
+                            times.append(result)
+
+                        # Was thread cancelled?
+                        if self.thread_cancelled:
+                            return
+
+                    # Create a summary message
+                    if failures:
+                        fail_log = get_bullet_points([
+                            f"{name} ({case}) — {reason}"
+                            for name, case, reason in failures])
+                        summary = msg_error(f'FAILED{fail_log}')
                     else:
-                        times.append(result)
+                        avg = round(sum(times) / len(times), 1)
+                        summary = msg_success(f'{avg}s Avg.')
 
-                    # Was thread cancelled?
-                    if self.thread_cancelled:
-                        return
-
-                # Create a summary message
-                if failures:
-                    fail_log = get_bullet_points([
-                        f"{name} ({case}) — {reason}"
-                        for name, case, reason in failures])
-                    summary = msg_error(f'FAILED{fail_log}')
-                else:
-                    avg = round(sum(times) / len(times), 1)
-                    summary = msg_success(f'{avg}s Avg.')
-
-                # Log summary and continue to next template
-                self.console.update(summary)
-                self.close_document()
+                    # Log summary and continue to next template
+                    self.console.update(summary)
+                    self.close_document()
 
     @render_process_wrapper
     def test_target(self, card_type: str, template: TemplateDetails) -> None:
@@ -715,7 +716,7 @@ class ProxyshopGUIApp(App):
         loaded_class: type[BaseTemplate],
         reload_config: bool = False,
         reload_constants: bool = False
-    ) -> Optional[float]:
+    ) -> float | None:
         """Execute a render job using a given card layout, template, and template class.
 
         Args:
@@ -730,7 +731,7 @@ class ProxyshopGUIApp(App):
         """
         # Notify the user
         if not self.env.TEST_MODE:
-            self.console.update(msg_success(f"---- {card.display_name} ----"))
+            self.console.update(msg_success(f"---- {card.display_name} ({card.artist}) [{card.set}] {card.collector_number_raw} ----"))
 
         # Reload config and/or constants
         if reload_config:
@@ -892,7 +893,7 @@ class ProxyshopGUIApp(App):
         cfg_panel = SettingsPopup()
         cfg_panel.open()
 
-    def build(self) -> Union[TestApp, AppContainer]:
+    def build(self) -> TestApp | AppContainer:
         """Build the app for display.
 
         Returns:
@@ -978,7 +979,7 @@ class ProxyshopGUIApp(App):
             return
 
         # Missing fonts
-        self.console.update(f"Fonts ... {msg_warn(f'Missing or outdated fonts:')}", end='')
+        self.console.update(f"Fonts ... {msg_warn('Missing or outdated fonts:')}", end='')
         if missing:
             self.console.update(
                 get_bullet_points([f"{f['name']} — {msg_warn('Not Installed')}" for f in missing.values()]), end="")

@@ -8,7 +8,7 @@ import zipfile
 from contextlib import suppress
 from glob import glob
 from pathlib import Path
-from typing import Optional, Union, TypedDict, NotRequired
+from typing import TypedDict, NotRequired
 from shutil import (
     copy2,
     copytree,
@@ -95,11 +95,11 @@ def make_directories(config: DistConfig) -> None:
 
 
 def copy_directory(
-    src: Union[str, os.PathLike],
-    dst: Union[str, os.PathLike],
+    src: str | os.PathLike[str],
+    dst: str | os.PathLike[str],
     x_files: list[str],
     x_dirs: list[str],
-    x_ext: Optional[list[str]] = None,
+    x_ext: list[str] | None = None,
     recursive: bool = True
 ) -> None:
     """Copy a directory from src to dst.
@@ -208,7 +208,7 @@ def build_zip(filename: str) -> None:
 
 
 def build_release(
-    version: Optional[str] = None,
+    version: str | None = None,
     console: bool = False,
     beta: bool = False,
     zipped: bool = True
@@ -282,7 +282,8 @@ def generate_mkdocs(path: str) -> None:
     directory = SRC / 'src' / path
     parent = 'temps' if path == 'templates' else path
     for module in get_python_modules(directory):
-        functions, classes = [], []
+        functions: list[str] = []
+        classes: list[str] = []
 
         # Scan for functions and classes to document
         with open(Path(directory, module).with_suffix('.py')) as file:
@@ -321,7 +322,7 @@ def generate_mkdocs(path: str) -> None:
                 ) for func in functions]
 
 
-def generate_nav(headers: list[str], paths: list[str]) -> list[dict]:
+def generate_nav(headers: list[str], paths: list[str]) -> list[dict[str, list[str]]]:
     """Generates the nav menu data for mkdocs.yml containing scanned modules.
 
     Args:
@@ -331,7 +332,7 @@ def generate_nav(headers: list[str], paths: list[str]) -> list[dict]:
     Returns:
         List of nav item objects.
     """
-    nav = []
+    nav: list[dict[str, list[str]]] = []
     for i, path in enumerate(paths):
         parent = 'temps' if path == 'templates' else path
         md_files = sorted([f for f in os.listdir(Path(SRC, 'docs', parent)) if f.endswith('.md')])
@@ -340,7 +341,7 @@ def generate_nav(headers: list[str], paths: list[str]) -> list[dict]:
     return nav
 
 
-def update_mkdocs_yml(nav: list[dict]) -> None:
+def update_mkdocs_yml(nav: list[dict[str, list[str]]]) -> None:
     """Updates the mkdocs.yml file with the new nav list.
 
     Args:

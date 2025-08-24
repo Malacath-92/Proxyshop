@@ -3,7 +3,7 @@ Pencil Sketchify Action Module
 """
 # Standard Library Imports
 from threading import Event
-from typing import Union
+from collections.abc import Iterable
 
 # Third Party Imports
 import photoshop.api as ps
@@ -49,7 +49,7 @@ def reset_colors():
 	APP.executeAction(cID('Rset'), desc1, dialog_mode)
 
 
-def move_layer(pos, index: Union[int, list[int]]):
+def move_layer(pos: int, index: int | list[int]):
 	if isinstance(index, int):
 		index = [index]
 	desc1 = ps.ActionDescriptor()
@@ -118,7 +118,7 @@ def auto_contrast():
 	APP.executeAction(cID('Lvls'), desc1, dialog_mode)
 
 
-def hide_layer(name=None):
+def hide_layer(name: str | None = None):
 	desc1 = ps.ActionDescriptor()
 	list1 = ps.ActionList()
 	ref1 = ps.ActionReference()
@@ -131,7 +131,7 @@ def hide_layer(name=None):
 	APP.executeAction(cID('Hd  '), desc1, dialog_mode)
 
 
-def show_layer(name=None):
+def show_layer(name: str | None = None):
 	desc1 = ps.ActionDescriptor()
 	list1 = ps.ActionList()
 	ref1 = ps.ActionReference()
@@ -144,7 +144,7 @@ def show_layer(name=None):
 	APP.executeAction(cID('Shw '), desc1, dialog_mode)
 
 
-def delete_layers(layers):
+def delete_layers(layers: Iterable[int]):
 	desc1 = ps.ActionDescriptor()
 	ref1 = ps.ActionReference()
 	ref1.putEnumerated(cID('Lyr '), cID('Ordn'), cID('Trgt'))
@@ -161,7 +161,7 @@ BLENDING MODES
 """
 
 
-def blend(key):
+def blend(key: str):
 	desc1 = ps.ActionDescriptor()
 	ref1 = ps.ActionReference()
 	ref1.putEnumerated(cID('Lyr '), cID('Ordn'), cID('Trgt'))
@@ -201,7 +201,13 @@ def blend_overlay(): blend('overlay')
 def blend_color(): blend('color')
 
 
-def run(thr: Event, draft_sketch=False, rough_sketch=False, black_and_white=True, manual_editing=False):
+def run(
+	thr: Event,
+	draft_sketch: bool = False,
+	rough_sketch: bool = False,
+	black_and_white: bool = True,
+	manual_editing: bool = False
+):
 	"""
 	Pencil Sketchify Steps
 	"""

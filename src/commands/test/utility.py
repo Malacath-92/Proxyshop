@@ -4,14 +4,12 @@
 """
 # Standard Library Imports
 from contextlib import suppress
-from typing import Optional, Union
 from _ctypes import COMError
 from xml.dom import minidom
 import warnings
 import logging
 import json
 import csv
-import os
 
 # Third Party Imports
 from photoshop.api._artlayer import ArtLayer
@@ -30,10 +28,11 @@ import xml.etree.ElementTree as ET
 # Local Imports
 from src import APP, TEMPLATES
 import src.helpers as psd
+from src.schema.colors import ColorObject
 from src.utils.adobe import LayerContainer
 
 # Photoshop infrastructure
-cID, sID = APP.charIDtoTypeID, APP.stringIDToTypeID
+cID, sID = APP.charIDToTypeID, APP.stringIDToTypeID
 NO_DIALOG = DialogModes.DisplayNoDialogs
 
 # Reference Box colors
@@ -48,7 +47,7 @@ BLACK = [0, 0, 0]
 """
 
 
-def test_new_color(new: str, old: Optional[str] = None, ignore: Optional[list[str]] = None) -> None:
+def test_new_color(new: str, old: str | None = None, ignore: list[str] | None = None) -> None:
     """Enables given color in all necessary groups. Optionally disable a color in those groups.
 
     Args:
@@ -71,8 +70,8 @@ def test_new_color(new: str, old: Optional[str] = None, ignore: Optional[list[st
 
 def make_duals(
     name: str = "Pinlines & Textbox",
-    mask_top: Optional[ArtLayer] = None,
-    mask_bottom: Optional[ArtLayer] = None
+    mask_top: ArtLayer | None = None,
+    mask_bottom: ArtLayer | None = None
 ):
     """Creates dual color layers for a given group.
 
@@ -106,9 +105,9 @@ def make_duals(
 
 
 def create_blended_layer(
-    colors: Union[str, list[str]],
+    colors: str | list[str],
     group: LayerSet,
-    masks: Union[None, ArtLayer, list[ArtLayer]] = None
+    masks: None | ArtLayer | list[ArtLayer] = None
 ):
     """Create a multicolor layer using a gradient mask.
 
@@ -298,16 +297,16 @@ def apply_single_line_composer(layer: ArtLayer) -> None:
     desc1 = ActionDescriptor()
     ref1 = ActionReference()
     desc2 = ActionDescriptor()
-    ref1.PutProperty(sID("property"), sID("paragraphStyle"))
+    ref1.putProperty(sID("property"), sID("paragraphStyle"))
     ref1.putIdentifier(sID("textLayer"), layer.id)
-    desc1.PutReference(sID("target"), ref1)
-    desc2.PutInteger(sID("textOverrideFeatureName"), 808464691)
-    desc2.PutBoolean(sID("textEveryLineComposer"), False)
-    desc1.PutObject(sID("to"), sID("paragraphStyle"), desc2)
-    APP.Executeaction(sID("set"), desc1, NO_DIALOG)
+    desc1.putReference(sID("target"), ref1)
+    desc2.putInteger(sID("textOverrideFeatureName"), 808464691)
+    desc2.putBoolean(sID("textEveryLineComposer"), False)
+    desc1.putObject(sID("to"), sID("paragraphStyle"), desc2)
+    APP.executeAction(sID("set"), desc1, NO_DIALOG)
 
 
-def combine_text_items(from_layer: ArtLayer, to_layer: ArtLayer, sep: Optional[str] = " "):
+def combine_text_items(from_layer: ArtLayer, to_layer: ArtLayer, sep: str | None = " "):
     """Append the "from_layer" contents to the end of "to_layer" contents with optional separator.
         Preserves the complete style range formatting of both text contents.
 
@@ -399,7 +398,7 @@ def xmp_remove_ancestors() -> None:
 """
 
 
-def create_color_shape(layer: ArtLayer, color: list) -> ArtLayer:
+def create_color_shape(layer: ArtLayer, color: ColorObject) -> ArtLayer:
     layer_name = layer.name
     color = psd.get_color(color)
     docref = APP.activeDocument
@@ -415,7 +414,7 @@ def create_color_shape(layer: ArtLayer, color: list) -> ArtLayer:
     ref2.putProperty(sID("selectionClass"), sID("selection"))
     desc1.putReference(sID("from"), ref2)
     desc1.putUnitDouble(sID("tolerance"), sID("pixelsUnit"), 2.000000)
-    APP.executeaction(sID("make"), desc1, NO_DIALOG)
+    APP.executeAction(sID("make"), desc1, NO_DIALOG)
 
     ref1 = ActionReference()
     desc1 = ActionDescriptor()
@@ -430,7 +429,7 @@ def create_color_shape(layer: ArtLayer, color: list) -> ArtLayer:
     desc3.putObject(sID("color"), sID("RGBColor"), desc4)
     desc2.putObject(sID("type"), sID("solidColorLayer"), desc3)
     desc1.putObject(sID("using"), sID("contentLayer"), desc2)
-    APP.executeaction(sID("make"), desc1, NO_DIALOG)
+    APP.executeAction(sID("make"), desc1, NO_DIALOG)
     APP.activeDocument.activeLayer.name = layer_name
 
     # Check dims
@@ -500,7 +499,7 @@ def log_all_template_fonts() -> dict:
 
     # Log a sorted master list
     master: dict[str, list] = {k: v for k, v in sorted(master.items(), key=lambda item: len(item[1]))}
-    with open(f'logs/FONTS.json', 'w', encoding='utf-8') as f:
+    with open('logs/FONTS.json', 'w', encoding='utf-8') as f:
         json.dump(master, f, indent=2)
     return master
 
@@ -512,7 +511,7 @@ def log_all_template_fonts() -> dict:
 """
 
 
-def insert_data_set_variables(xml_data: str, from_path: str, to_path: Optional[str] = None) -> None:
+def insert_data_set_variables(xml_data: str, from_path: str, to_path: str | None = None) -> None:
     """Inserts data set variable XML into a PSD document.
 
     Args:
@@ -569,8 +568,8 @@ def format_data_set_variable_name(text: str) -> str:
 
 
 def get_data_set_variables(
-    group: Optional[Union[LayerContainer]] = None,
-    tree: Optional[str] = None
+    group: LayerContainer | None = None,
+    tree: str | None = None
 ) -> list[dict[str, str]]:
     """Get data set variables for all ArtLayer and LayerSet objects in document or LayerSet.
 

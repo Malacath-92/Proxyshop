@@ -5,19 +5,20 @@
 from contextlib import suppress
 from functools import cache
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, ParamSpec, TypeVar
+from collections.abc import Callable
 
 # Third Party Imports
+from pydantic import BaseModel
 import requests
 from requests import RequestException
 from ratelimit import RateLimitDecorator, sleep_and_retry
 from backoff import on_exception, expo
-from omnitils.exceptions import log_on_exception, return_on_exception
+from omnitils.exceptions import log_on_exception, return_on_exception, ExceptionLogger
 from omnitils.fetch import download_file
 from omnitils.files.archive import unpack_zip
 from omnitils.files import dump_data_file
-from omnitils.schema import Schema
-from hexproof.hexapi import schema as Hexproof
+from hexproof.hexapi.schema.meta import Meta
 
 # Local Imports
 from src import CON, CONSOLE, PATH
@@ -28,14 +29,17 @@ from src.utils.download import HEADERS
 * Types
 """
 
+T = TypeVar("T")
+P = ParamSpec("P")
 
-class HexproofSet(Schema):
+
+class HexproofSet(BaseModel):
     """Cached 'Set' object data from Hexproof.io."""
     code_symbol: str
-    code_parent: Optional[str] = None
+    code_parent: str | None = None
     count_cards: int
     count_tokens: int
-    count_printed: Optional[int] = None
+    count_printed: int | None = None
 
 
 """
@@ -53,7 +57,7 @@ hexproof_http_header = HEADERS.Default.copy()
 """
 
 
-def hexproof_request_wrapper(logr: Any = None) -> Callable:
+def hexproof_request_wrapper(fallback: T, logr: ExceptionLogger | None = None) -> Callable[[Callable[P,T]], Callable[P, T]]:
     """Wrapper for a Hexproof.io request function to handle retries, rate limits, and a final exception catch.
 
     Args:
@@ -64,13 +68,13 @@ def hexproof_request_wrapper(logr: Any = None) -> Callable:
     """
     logr = logr or CONSOLE
 
-    def decorator(func):
-        @return_on_exception({})
+    def decorator(func: Callable[P,T]):
+        @return_on_exception(fallback)
         @log_on_exception(logr)
         @sleep_and_retry
         @hexproof_rate_limit
         @on_exception(expo, requests.exceptions.RequestException, max_tries=2, max_time=1)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs):
             return func(*args, **kwargs)
         return wrapper
     return decorator
@@ -95,7 +99,7 @@ def get_api_key(key: str) -> str:
         RequestException if request was unsuccessful.
     """
     url = HexURL.API.Keys.All / key
-    res = requests.get(url, headers=hexproof_http_header, timeout=(3, 3))
+    res = requests.get(str(url), headers=hexproof_http_header, timeout=(3, 3))
     if res.status_code == 200:
         return res.json().get('key', '')
     raise RequestException(
@@ -103,8 +107,8 @@ def get_api_key(key: str) -> str:
         response=res)
 
 
-@hexproof_request_wrapper()
-def get_metadata() -> dict[str, Hexproof.Meta]:
+@hexproof_request_wrapper({})
+def get_metadata() -> dict[str, Meta]:
     """Return a manifest of all resource metadata.
 
     Returns:
@@ -113,16 +117,16 @@ def get_metadata() -> dict[str, Hexproof.Meta]:
     Raises:
         RequestException if request was unsuccessful.
     """
-    res = requests.get(HexURL.API.Meta.All, headers=hexproof_http_header, timeout=(3, 3))
+    res = requests.get(str(HexURL.API.Meta.All), headers=hexproof_http_header, timeout=(3, 3))
     if res.status_code == 200:
-        return {k: Hexproof.Meta(**v) for k, v in res.json().items()}
+        return {k: Meta(**v) for k, v in res.json().items()}
     raise RequestException(
-        res.json().get('details', f"Failed to get metadata!"),
+        res.json().get('details', "Failed to get metadata!"),
         response=res)
 
 
-@hexproof_request_wrapper()
-def get_sets() -> dict:
+@hexproof_request_wrapper({})
+def get_sets() -> dict[str,dict[str,Any]]:
     """Retrieve the current 'Set' data manifest from https://api.hexproof.io.
 
     Returns:
@@ -131,11 +135,11 @@ def get_sets() -> dict:
     Raises:
         RequestException if request was unsuccessful.
     """
-    res = requests.get(HexURL.API.Sets.All, headers=hexproof_http_header, timeout=(10, 30))
+    res = requests.get(str(HexURL.API.Sets.All), headers=hexproof_http_header, timeout=(5, 5))
     if res.status_code == 200:
         return res.json()
     raise RequestException(
-        res.json().get('details', f'Failed to get set data!'),
+        res.json().get('details', 'Failed to get set data!'),
         response=res)
 
 
@@ -144,7 +148,7 @@ def get_sets() -> dict:
 """
 
 
-def process_data_sets(data: dict) -> dict[str, HexproofSet]:
+def process_data_sets(data: dict[str,dict[str,Any]]) -> dict[str, HexproofSet]:
     """Process bulk 'Set' data retrieved from the Hexproof API into a smaller dataset.
 
     Args:
@@ -169,16 +173,16 @@ def process_data_sets(data: dict) -> dict[str, HexproofSet]:
 """
 
 
-def update_hexproof_cache() -> tuple[bool, Optional[str]]:
+def update_hexproof_cache() -> tuple[bool, str | None]:
     """Check for a hexproof.io data update.
 
     Returns:
         tuple: A tuple containing the boolean success state of the update, and a string message
             explaining the error if one occurred.
     """
-    meta, set_data, updated = {}, {}, False
+    meta, updated = {}, False
     with suppress(Exception):
-        meta: dict[str, Hexproof.Meta] = get_metadata()
+        meta: dict[str, Meta] = get_metadata()
 
     # Check against current metadata
     _current, _next = CON.metadata.get('sets'), meta.get('sets')
@@ -225,7 +229,7 @@ def update_hexproof_cache() -> tuple[bool, Optional[str]]:
 
 
 @cache
-def get_set_data(code: str) -> dict:
+def get_set_data(code: str) -> dict[str,Any] | None:
     """Returns a specific 'Set' object by set code.
 
     Args:
@@ -237,7 +241,7 @@ def get_set_data(code: str) -> dict:
     return CON.set_data.get(code.lower(), None)
 
 
-def get_watermark_svg_from_set(code: str) -> Optional[Path]:
+def get_watermark_svg_from_set(code: str) -> Path | None:
     """Look for a watermark SVG in the 'Set' symbol catalog.
 
     Args:
@@ -262,7 +266,7 @@ def get_watermark_svg_from_set(code: str) -> Optional[Path]:
     return p if p.is_file() else None
 
 
-def get_watermark_svg(wm: str) -> Optional[Path]:
+def get_watermark_svg(wm: str) -> Path | None:
     """Look for a watermark SVG in the watermark symbol catalog. If not found, look for a 'set' watermark.
 
     Args:

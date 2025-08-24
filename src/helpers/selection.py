@@ -3,11 +3,11 @@
 """
 # Standard Library Imports
 from contextlib import suppress
-from typing import Optional
 
 # Third Party Imports
 from photoshop.api._artlayer import ArtLayer
 from photoshop.api._document import Document
+from photoshop.api._layerSet import LayerSet
 from photoshop.api._selection import Selection
 from photoshop.api import (
     ActionDescriptor,
@@ -20,7 +20,7 @@ from src import APP
 from src.utils.adobe import PS_EXCEPTIONS
 
 # Photoshop infrastructure
-cID, sID = APP.charIDtoTypeID, APP.stringIDToTypeID
+cID, sID = APP.charIDToTypeID, APP.stringIDToTypeID
 NO_DIALOG = DialogModes.DisplayNoDialogs
 
 """
@@ -29,8 +29,8 @@ NO_DIALOG = DialogModes.DisplayNoDialogs
 
 
 def select_bounds(
-    bounds: tuple[int, int, int, int],
-    selection: Optional[Selection] = None
+    bounds: tuple[float,float,float,float],
+    selection: Selection | None = None
 ) -> None:
     """Create a selection using a list of bound values.
 
@@ -40,14 +40,14 @@ def select_bounds(
     """
     selection = selection or APP.activeDocument.selection
     left, top, right, bottom = bounds
-    selection.select([
-        [left, top],
-        [right, top],
-        [right, bottom],
-        [left, bottom]])
+    selection.select(
+        ((left, top),
+        (right, top),
+        (right, bottom),
+        (left, bottom)))
 
 
-def select_layer_bounds(layer: ArtLayer = None, selection: Optional[Selection] = None) -> None:
+def select_layer_bounds(layer: ArtLayer | LayerSet | None = None, selection: Selection | None = None) -> None:
     """Select the bounding box of a given layer.
 
     Args:
@@ -65,7 +65,7 @@ def select_overlapping(layer: ArtLayer) -> None:
     Args:
         layer: Layer with pixels to select.
     """
-    with suppress(PS_EXCEPTIONS):
+    with suppress(*PS_EXCEPTIONS):
         idChannel = sID('channel')
         desc1, ref1, ref2 = ActionDescriptor(), ActionReference(), ActionReference()
         ref1.putEnumerated(idChannel, idChannel, sID("transparencyEnum"))
@@ -76,7 +76,7 @@ def select_overlapping(layer: ArtLayer) -> None:
         APP.executeAction(sID("interfaceIconFrameDimmed"), desc1, NO_DIALOG)
 
 
-def select_canvas(docref: Optional[Document] = None, bleed: int = 0):
+def select_canvas(docref: Document | None = None, bleed: int = 0):
     """Select the entire canvas of a provided or active document.
 
     Args:
@@ -84,12 +84,12 @@ def select_canvas(docref: Optional[Document] = None, bleed: int = 0):
         bleed: Amount of bleed edge to leave around selection, defaults to 0.
     """
     docref = docref or APP.activeDocument
-    docref.selection.select([
-        [0 + bleed, 0 + bleed],
-        [docref.width - bleed, 0 + bleed],
-        [docref.width - bleed, docref.height - bleed],
-        [0 + bleed, docref.height - bleed]
-    ])
+    docref.selection.select(
+        ((0 + bleed, 0 + bleed),
+        (docref.width - bleed, 0 + bleed),
+        (docref.width - bleed, docref.height - bleed),
+        (0 + bleed, docref.height - bleed))
+    )
 
 
 """
@@ -97,7 +97,7 @@ def select_canvas(docref: Optional[Document] = None, bleed: int = 0):
 """
 
 
-def select_layer_pixels(layer: Optional[ArtLayer] = None) -> None:
+def select_layer_pixels(layer: ArtLayer | None = None) -> None:
     """Select pixels of the active layer, or a target layer.
 
     Args:
@@ -117,7 +117,7 @@ def select_layer_pixels(layer: Optional[ArtLayer] = None) -> None:
     APP.executeAction(sID("set"), des1, NO_DIALOG)
 
 
-def select_vector_layer_pixels(layer: Optional[ArtLayer] = None) -> None:
+def select_vector_layer_pixels(layer: ArtLayer | None = None) -> None:
     """Select pixels of the active vector layer, or a target layer.
 
     Args:
@@ -142,7 +142,7 @@ def select_vector_layer_pixels(layer: Optional[ArtLayer] = None) -> None:
 """
 
 
-def check_selection_bounds(selection: Optional[Selection] = None) -> Optional[tuple[int, int, int, int]]:
+def check_selection_bounds(selection: Selection | None = None) -> tuple[float, float, float, float] | None:
     """Verifies if a selection has valid bounds.
 
     Args:
@@ -152,7 +152,7 @@ def check_selection_bounds(selection: Optional[Selection] = None) -> Optional[tu
         An empty list if selection is invalid, otherwise return bounds of selection.
     """
     selection = selection or APP.activeDocument.selection
-    with suppress(PS_EXCEPTIONS):
+    with suppress(*PS_EXCEPTIONS):
         if selection.bounds != (0, 0, 0, 0):
             return selection.bounds
     return

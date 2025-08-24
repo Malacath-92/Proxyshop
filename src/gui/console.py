@@ -9,7 +9,7 @@ import time
 import traceback
 from functools import cached_property
 from threading import Thread, Event, Lock
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from datetime import datetime as dt
 
 # Third Party Imports
@@ -64,7 +64,7 @@ class GUIConsole(BoxLayout):
     """
 
     @cached_property
-    def output(self) -> 'ConsoleOutput':
+    def output(self) -> ConsoleOutput:
         """Label where console output is stored."""
         return self.ids.console_output
 
@@ -166,7 +166,7 @@ class GUIConsole(BoxLayout):
     def update(
         self,
         msg: str = "",
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
         end: str = "\n"
     ) -> None:
         """Add text to console output.
@@ -186,9 +186,9 @@ class GUIConsole(BoxLayout):
         self,
         thr: Event,
         card: str,
-        template: Optional[str] = None,
+        template: str | None = None,
         msg: str = 'Encountered a general error!',
-        e: Optional[Exception] = None
+        e: Exception | None = None
     ) -> bool:
         """Log failed card and exception if provided, then prompt user to make a decision.
 
@@ -208,9 +208,9 @@ class GUIConsole(BoxLayout):
 
     def error(
         self,
-        thr: Optional[Event] = None,
+        thr: Event | None = None,
         msg: str = 'Encountered a general error!',
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
         end: str = '\nShould I continue?\n'
     ) -> bool:
         """Display error, wait for user to cancel or continue.

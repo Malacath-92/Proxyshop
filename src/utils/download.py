@@ -5,7 +5,7 @@
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from collections.abc import Callable
 
 # Third Party Imports
 import requests
@@ -30,7 +30,7 @@ class HEADERS:
 """
 
 
-def download_cloudfront(url: yarl.URL, path: Path, callback: Optional[Callable] = None) -> bool:
+def download_cloudfront(url: yarl.URL, path: Path, callback: Callable[[int, int], None] | None = None) -> bool:
     """Download a template from cloudfront cached Amazon S3 bucket.
 
     Args:

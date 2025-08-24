@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Callable
+from collections.abc import Callable
 
 from photoshop.api._artlayer import ArtLayer
 from photoshop.api._layerSet import LayerSet
@@ -10,7 +10,7 @@ from src.helpers.bounds import (
     get_layer_dimensions,
     get_layer_height,
 )
-from src.helpers.layers import duplicate_group, getLayer, getLayerSet, select_layer
+from src.helpers.layers import duplicate_group, getLayer, getLayerSet
 from src.helpers.position import spread_layers_over_reference
 from src.helpers.text import scale_text_layers_to_height
 from src.layouts import StationLayout
@@ -65,9 +65,11 @@ class StationMod(NormalTemplate):
         if self.station_level_base_group:
             if isinstance(self.layout, StationLayout):
                 for i in range(len(self.layout.stations) - 1):
-                    select_layer(self.station_level_base_group)
                     groups.append(
-                        duplicate_group(f"{self.station_level_base_group.name} {i}")
+                        duplicate_group(
+                            self.station_level_base_group,
+                            f"{self.station_level_base_group.name} {i}",
+                        )
                     )
             groups.append(self.station_level_base_group)
         return groups

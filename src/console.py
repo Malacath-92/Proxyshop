@@ -9,12 +9,13 @@ import time
 from threading import Lock, Event, Thread
 from datetime import datetime as dt
 from functools import cached_property
-from typing import Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 # Third Party Imports
 from omnitils.enums import StrConstant
-from omnitils.logs import logger, Logger
+from omnitils.logs import logger
 from omnitils.metaclass import Singleton
+from loguru._logger import Logger
 
 # Local Imports
 from src._config import AppConfig
@@ -77,7 +78,7 @@ def msg_italics(msg: str) -> str:
     return f"[i]{msg}[/i]"
 
 
-def msg_error(msg: str, reason: Optional[str] = None) -> str:
+def msg_error(msg: str, reason: str | None = None) -> str:
     """Adds a defined 'error' color tag to Proxyshop console message.
 
     Args:
@@ -91,7 +92,7 @@ def msg_error(msg: str, reason: Optional[str] = None) -> str:
     return f"{msg_bold(msg)} - {msg_italics(reason)}" if reason else msg
 
 
-def msg_warn(msg: str, reason: Optional[str] = None) -> str:
+def msg_warn(msg: str, reason: str | None = None) -> str:
     """Adds a defined 'warning' color tag to Proxyshop console message.
 
     Args:
@@ -185,20 +186,20 @@ class TerminalConsole:
     Logger Object Methods
     """
 
-    def debug(self, *args, **kwargs):
-        return self.logger.debug(*args, **kwargs)
+    def debug(self, msg: str, *args: Any, **kwargs: Any):
+        return self.logger.debug(msg, *args, **kwargs)
 
-    def info(self, *args, **kwargs):
-        return self.logger.info(*args, **kwargs)
+    def info(self, msg: str, *args: Any, **kwargs: Any):
+        return self.logger.info(msg, *args, **kwargs)
 
-    def warning(self, *args, **kwargs):
-        return self.logger.warning(*args, **kwargs)
+    def warning(self, msg: str, *args: Any, **kwargs: Any):
+        return self.logger.warning(msg, *args, **kwargs)
 
-    def failed(self, *args, **kwargs):
-        return self.logger.error(*args, **kwargs)
+    def failed(self, msg: str, *args: Any, **kwargs: Any):
+        return self.logger.error(msg, *args, **kwargs)
 
-    def critical(self, *args, **kwargs):
-        return self.logger.critical(*args, **kwargs)
+    def critical(self, msg: str, *args: Any, **kwargs: Any):
+        return self.logger.critical(msg, *args, **kwargs)
 
     """
     Reusable Strings
@@ -228,7 +229,7 @@ class TerminalConsole:
     Utility Methods
     """
 
-    def log_exception(self, error: Exception, *_) -> None:
+    def log_exception(self, error: Exception, *args: Any) -> None:
         """Log python exception.
 
         Args:
@@ -248,7 +249,7 @@ class TerminalConsole:
     def update(
         self,
         msg: str = "",
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
         end: str = "\n"
     ) -> None:
         """
@@ -277,9 +278,9 @@ class TerminalConsole:
         self,
         thr: Event,
         card: str,
-        template: Optional[str] = None,
+        template: str | None = None,
         msg: str = "Encountered a general error!",
-        e: Optional[Exception] = None
+        e: Exception | None = None
     ) -> bool:
         """
         Log failed card and exception if provided, then prompt user to make a decision.
@@ -295,9 +296,9 @@ class TerminalConsole:
 
     def error(
         self,
-        thr: Optional[Event] = None,
+        thr: Event | None = None,
         msg: str = 'Encountered a general error!',
-        exception: Optional[Exception] = None,
+        exception: Exception | None = None,
         end: str = '\nShould I continue?\n'
     ) -> bool:
         """Display error, wait for user to cancel or continue.
@@ -340,7 +341,7 @@ class TerminalConsole:
     User Prompt Signals
     """
 
-    def await_choice(self, thr: Event, msg: str | None = None, end: str = "\n", show_photoshop: bool = True) -> bool:
+    def await_choice(self, thr: Event |None, msg: str | None = None, end: str = "\n", show_photoshop: bool = True) -> bool:
         """
         Prompt the user to either continue or cancel.
         @param thr: Event object representing the status of the render thread.
