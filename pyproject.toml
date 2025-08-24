@@ -1,11 +1,22 @@
-[tool.poetry]
+[project]
 name = "proxyshop"
 version = "1.13.2"
 description = "Photoshop automation tool for generating high quality Magic the Gathering card renders."
-authors = ["Investigamer <freethoughtleft@gmail.com>"]
+authors = [{ name = "Investigamer", email = "freethoughtleft@gmail.com" }]
 license = "MPL-2.0"
 readme = "README.md"
-keywords = ["proxyshop", "proxy", "mtg", "magic", "gathering", "cards", "photoshop", "magic the gathering", "playtest"]
+keywords = [
+    "proxyshop",
+    "proxy",
+    "mtg",
+    "magic",
+    "gathering",
+    "cards",
+    "photoshop",
+    "magic the gathering",
+    "playtest",
+]
+requires-python = ">=3.11,<3.15"
 
 [tool.poetry.urls]
 Changelog = "https://github.com/Investigamer/Proxyshop/blob/main/CHANGELOG.md"
@@ -19,66 +30,73 @@ Sponsor = "https://patreon.com/mpcfill"
 include = 'src/../'
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-photoshop-python-api = "^0.22.4"
-requests = "^2.28.1"
-asynckivy = "^0.7.0"
-Pillow = "^10.3.0"
-kivy = "^2.3.0"
-typing-extensions = "^4.5.0"
+photoshop-python-api = { git = "https://github.com/pappnu/photoshop-python-api.git", branch = "type-annotation" }
+requests = "^2.32.5"
+asynckivy = "^0.9.0"
+Pillow = "^11.3.0"
+kivy = "^2.3.1"
+typing-extensions = "^4.14.1"
 ratelimit = "^2.2.1"
 backoff = "^2.2.1"
-pathvalidate = "^3.2.0"
-fonttools = "^4.39.3"
-pyyaml = "^6.0"
-tqdm = "^4.65.0"
-click = "^8.1.7"
-tomli = "^2.0.1"
-yarl = "^1.9.3"
-pydantic = "^2.5.2"
-omnitils = "^1.4.4"
-dynaconf = {extras = ["yaml"], version = "^3.2.6"}
-hexproof = "^0.3.7"
-rich = "^13.8.1"
-pywin32 = "^310"
+pathvalidate = "^3.3.1"
+fonttools = "^4.59.1"
+pyyaml = "^6.0.2"
+tqdm = "^4.67.1"
+click = "^8.2.1"
+tomli = "^2.2.1"
+yarl = "^1.20.1"
+pydantic = "^2.11.7"
+omnitils = { git = "https://github.com/pappnu/omnitils.git", branch = "dev" }
+dynaconf = { extras = ["yaml"], version = "^3.2.11" }
+hexproof = { git = "https://github.com/pappnu/hexproof.git", branch = "dev" }
+rich = "^14.1.0"
+pywin32 = "^311.0.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.2.0"
-mypy = "^1.6.0"
-commitizen = "^3.12.0"
-setuptools = "^67.6.0"
-matplotlib = "^3.7.2"
-psd-tools = "^1.9.28"
-pyclean = "^2.2.0"
-pyinstaller = "^5.12.0"
-pre-commit = "^3.5.0"
-mkdocs = "^1.5.3"
-mkdocs-material = "^9.4.8"
-mkdocs-include-markdown-plugin = "^6.0.4"
-mkdocs-pymdownx-material-extras = "^2.5.5"
-mkdocs-minify-plugin = "^0.7.1"
-mkdocstrings-python = "^1.7.3"
+pytest = "^8.4.1"
+mypy = "^1.17.1"
+commitizen = "^4.8.3"
+setuptools = "^80.9.0"
+matplotlib = "^3.10.5"
+psd-tools = "^1.10.9"
+pyclean = "^3.1.0"
+pyinstaller = "^6.15.0"
+pre-commit = "^4.3.0"
+mkdocs = "^1.6.1"
+mkdocs-material = "^9.6.18"
+mkdocs-include-markdown-plugin = "^7.1.6"
+mkdocs-pymdownx-material-extras = "^2.8.0"
+mkdocs-minify-plugin = "^0.8.0"
+mkdocstrings-python = "^1.17.0"
 mkdocs-gen-files = "^0.5.0"
 mkdocs-autolinks-plugin = "^0.7.1"
-mkdocs-same-dir = "^0.1.2"
+mkdocs-same-dir = "^0.1.3"
 mkdocs-git-revision-date-plugin = "^0.3.2"
-mkdocstrings = {extras = ["python"], version = "^0.23.0"}
+mkdocstrings = { extras = ["python"], version = "^0.30.0" }
 memory-profiler = "^0.61.0"
-types-pywin32 = "^310.0.0.20250516"
+types-pywin32 = "^311.0.0.20250809"
+types-requests = "^2.32.4.20250809"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.commitizen]
-version = "1.13.2"
+version_provider = "pep621"
 encoding = "utf-8"
 changelog_start_rev = 'v1.2.0'
 tag_format = "v$major.$minor.$patch"
 update_changelog_on_bump = true
-version_files = [
-    "pyproject.toml:version"
-]
 
 [tool.poetry.scripts]
 proxyshop = 'main:launch_cli'
+
+[tool.ruff.lint]
+extend-select = [
+    "UP", # pyupgrade
+]
+ignore = ["F403", "UP015"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = "information"
