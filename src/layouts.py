@@ -76,11 +76,6 @@ class ClassLine(TypedDict):
     level: str
     text: str
 
-def get_card_name(data: ScryfallCard | ScryfallCardFace, use_printed_name: bool = CFG.use_printed_name) -> str:
-    if use_printed_name and (printed_name := data.printed_name):
-        return printed_name
-    return data.name
-
 """
 * Layout Processing
 """
@@ -210,6 +205,9 @@ class NormalLayout:
         return (f"{self.name}"
                 f"{f' [{self.set}]' if self.set else ''}"
                 f"{f' {{{self.collector_number_raw}}}' if self.collector_number else ''}")
+    
+    def _get_card_name(self, data: ScryfallCard | ScryfallCardFace) -> str:
+        return data.printed_name if self.is_alt_lang and data.printed_name else data.name
 
     """
     * Core Data
@@ -332,12 +330,12 @@ Defaulting to first face."""
     @cached_property
     def name(self) -> str:
         """Card name, supports alternate language source."""
-        return get_card_name(self.card, CFG.use_printed_name or self.is_alt_lang)
+        return self._get_card_name(self.card)
 
     @cached_property
     def name_raw(self) -> str:
         """Card name, enforced English representation."""
-        return get_card_name(self.card, False)
+        return self.card.name
 
     @cached_property
     def nickname(self) -> str:
@@ -708,7 +706,7 @@ Defaulting to first face."""
     @cached_property
     def is_alt_lang(self) -> bool:
         """True if language selected isn't English."""
-        return bool(self.lang != 'EN')
+        return CFG.use_printed_texts or bool(self.lang != 'EN')
 
     """
     * Cosmetic Bool
@@ -1141,7 +1139,7 @@ class AdventureLayout(NormalLayout):
     @cached_property
     def name_adventure(self) -> str:
         """Name of the Adventure side."""
-        return get_card_name(self.adventure, CFG.use_printed_name or self.is_alt_lang)
+        return self._get_card_name(self.adventure)
 
     @cached_property
     def type_line_adventure(self) -> str:
@@ -1585,7 +1583,7 @@ class SplitLayout(NormalLayout):
     @cached_property
     def names(self) -> list[str]:
         """Both side names."""
-        return [get_card_name(c, CFG.use_printed_name or self.is_alt_lang) for c in self.cards]
+        return [self._get_card_name(c) for c in self.cards]
 
     @cached_property
     def name_raw(self) -> str:
