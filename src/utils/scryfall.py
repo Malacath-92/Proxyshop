@@ -27,7 +27,7 @@ from limits.storage import MemoryStorage
 from limits.strategies import MovingWindowRateLimiter
 from omnitils.exceptions import ExceptionLogger, log_on_exception, return_on_exception
 from omnitils.rate_limit import rate_limit
-from pydantic import BaseModel, HttpUrl, ValidationError
+from pydantic import BaseModel, Field, HttpUrl, ValidationError
 from requests.exceptions import RequestException
 
 from src import CONSOLE, PATH
@@ -211,9 +211,6 @@ class ScryfallCardFace(BaseModel):
 
 
 class ScryfallCard(BaseModel):
-    class Config:
-        fields = {"front": {"exclude": True}}
-
     # Core Card Fields
     arena_id: int | None = None
     id: UUID
@@ -306,7 +303,7 @@ class ScryfallCard(BaseModel):
     preview: ScryfallPreview | None = None
 
     # Non-official extensions
-    front: bool = True
+    front: bool = Field(default=True, exclude=True)
 
 
 class ScryfallList(BaseModel, Generic[T]):
