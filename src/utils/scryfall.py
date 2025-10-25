@@ -41,7 +41,7 @@ from src.utils.download import HEADERS
 T = TypeVar("T")
 P = ParamSpec("P")
 
-type LayoutType = Literal[
+LayoutType = Literal[
     "normal",
     "split",
     "flip",
@@ -73,15 +73,15 @@ type LayoutType = Literal[
     "station",
 ]
 
-type MagicColor = Literal["W", "U", "B", "R", "G"]
+MagicColor = Literal["W", "U", "B", "R", "G"]
 
-type Legality = Literal["legal", "not_legal", "restricted", "banned"]
+Legality = Literal["legal", "not_legal", "restricted", "banned"]
 
-type BorderColor = Literal["black", "white", "borderless", "yellow", "silver", "gold"]
+BorderColor = Literal["black", "white", "borderless", "yellow", "silver", "gold"]
 
-type Finish = Literal["foil", "nonfoil", "etched"]
+Finish = Literal["foil", "nonfoil", "etched"]
 
-type FrameEffect = Literal[
+FrameEffect = Literal[
     "legendary",
     "miracle",
     "enchantment",
@@ -110,13 +110,13 @@ type FrameEffect = Literal[
     "meld",
 ]
 
-type ScryfallGame = Literal["paper", "arena", "mtgo"]
+ScryfallGame = Literal["paper", "arena", "mtgo"]
 
-type ScryfallImageStatus = Literal["missing", "placeholder", "lowres", "highres_scan"]
+ScryfallImageStatus = Literal["missing", "placeholder", "lowres", "highres_scan"]
 
-type Rarity = Literal["common", "uncommon", "rare", "special", "mythic", "bonus"]
+Rarity = Literal["common", "uncommon", "rare", "special", "mythic", "bonus"]
 
-type SetType = Literal[
+SetType = Literal[
     "core",
     "expansion",
     "masters",
