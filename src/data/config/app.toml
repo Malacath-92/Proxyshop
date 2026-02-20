@@ -28,6 +28,12 @@ desc = """Overwrite rendered files with identical file names."""
 type = "bool"
 default = 1
 
+[FILES."PNG.Compression.Level"]
+title = "PNG Compression Level"
+desc = """What compression level to use when saving PNG files. Accepts values between 1-9. Higher values result in slightly smaller files but can slow down the saving process significantly."""
+type = "int"
+default = 3
+
 ###
 # * Scryfall Settings
 ###

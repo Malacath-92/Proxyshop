@@ -107,6 +107,9 @@ class AppConfig:
             option="Output.File.Name",
             fallback="#name (#frame<, #suffix>) [#set] {#num}",
         )
+        self.png_compression_level = self.file.getint(
+            "APP.FILES", "PNG.Compression.Level", fallback=3
+        )
 
         # APP - DATA
         self.use_printed_texts = self.file.getboolean(

@@ -236,7 +236,9 @@ class BaseTemplate:
     def save_mode(self) -> Callable[[Path, Document | None], None]:
         """Callable: Function called to save the rendered image."""
         if self.config.output_file_type == OutputFileType.PNG:
-            return psd.save_document_png
+            return lambda pth, doc: psd.save_document_png(
+                pth, doc, self.config.png_compression_level
+            )
         if self.config.output_file_type == OutputFileType.PSD:
             return psd.save_document_psd
         return psd.save_document_jpeg
