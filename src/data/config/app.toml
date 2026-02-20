@@ -108,21 +108,9 @@ default = 0
 [RENDER]
 title = "Render Settings"
 
-[RENDER."Generative.Fill"]
-title = "Enable Generative Fill"
-desc = """When enabled, fullart and extended templates will fill empty space using Generative Fill instead of Content Aware Fill. This feature will not work unless running the Photoshop BETA version."""
-type = "bool"
-default = 0
-
 [RENDER."Select.Variation"]
 title = "Select Generative Fill Variation"
 desc = """When enabled, render sequence will pause after 'Generative Fill' is applied and allow you to select a variation."""
-type = "bool"
-default = 0
-
-[RENDER."Feathered.Fill"]
-title = 'Feathered Fill Selections'
-desc = """When enabled, Proxyshop will feather (dramatically smooth) selections made for Content Aware Fill and Generative Fill. This usually improves the quality of fill results, especially on Generative Fill, at the cost of potentially replacing more original pixels at the edge of the art image."""
 type = "bool"
 default = 0
 
