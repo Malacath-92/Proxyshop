@@ -49,14 +49,23 @@ class RenderQueue:
         with self._queue_lock:
             # Order renders so that that the template document has to be switched
             # as few times as possible
+            idx = find_last_index(
+                self._queue,
+                lambda item: (
+                    item.layout.template_file == operation.layout.template_file
+                ),
+            )
+
+            # Active operation has to be checked separately if no match was found otherwise
             if (
-                idx := find_last_index(
-                    self._queue,
-                    lambda item: (
-                        item.layout.template_file == operation.layout.template_file
-                    ),
-                )
-            ) > -1:
+                idx == -1
+                and self.active_operation
+                and operation.layout.template_file
+                == self.active_operation.layout.template_file
+            ):
+                idx = 0
+
+            if idx > -1:
                 idx += 1
                 self._queue.insert(idx, operation)
             else:
