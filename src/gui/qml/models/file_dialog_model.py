@@ -63,7 +63,7 @@ class FileDialogModel(BaseDialogModel):
 
     _name_filters_changed = Signal()
 
-    @Property("QVariantList", notify=_name_filters_changed)
+    @Property(list, notify=_name_filters_changed)
     def name_filters(self) -> list[str]:  # pyright: ignore[reportRedeclaration]
         return self._name_filters
 
