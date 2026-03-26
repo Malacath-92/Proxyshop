@@ -246,6 +246,16 @@ ApplicationWindow {
                                 color: settingsWindow.systemPalette.text
                                 visible: Boolean(settingsListDelegate.desc)
                             }
+                            SelectableText {
+                                id: defaultText
+
+                                Layout.alignment: Qt.AlignTop
+                                Layout.fillWidth: true
+
+                                text: "Default: " + settingsListDelegate.default_value
+                                color: settingsWindow.systemPalette.placeholderText
+                                visible: !settingsListDelegate.isTitle
+                            }
                         }
                         Loader {
                             id: inputLoader
