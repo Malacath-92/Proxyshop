@@ -48,8 +48,7 @@ options = ["automatic", "always", "never"]
 title = "Allow Nickname"
 desc = """When enabled, if a nickname is available and the template has support for it, the card will be rendered with both a real name and a nickname. Some Scryfall cards come with a nickname by default, e.g. Gemrazer [IKO] {376}. Nickname can also be specified via the art filename with [nick=...]. E.g.
 Arcane Signet [nick=Manastone]
-Keep Out (Artist) [ECL] [nick=Access Denied] {19}
-"""
+Keep Out (Artist) [ECL] [nick=Access Denied] {19}"""
 type = "bool"
 default = 1
 
