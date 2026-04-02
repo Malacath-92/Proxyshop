@@ -754,7 +754,7 @@ class BaseTemplate:
     @cached_property
     def art_file(self) -> Path:
         """Path to the art file to load."""
-        art_file = self.layout.file.get('kwargs', {}).get('art', None)
+        art_file = self.layout.file['kwargs'].get('art', None)
         if art_file is not None:
             art_file = Path(art_file)
             if art_file.is_absolute():

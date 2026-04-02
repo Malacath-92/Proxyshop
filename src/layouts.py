@@ -499,6 +499,9 @@ class NormalLayout:
     @cached_property
     def symbol_code(self) -> str:
         """Code used to match a symbol to this card's set. Provided by hexproof.io."""
+        forced_symbol = self.file['kwargs'].get('sym', None)
+        if forced_symbol:
+            return forced_symbol.upper()
         if self.config.symbol_force_default:
             return self.config.symbol_default.upper()
         if self.set_data:
