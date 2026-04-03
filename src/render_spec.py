@@ -121,10 +121,12 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
             specs = [
                 CardSpec(s.split(".")[0], s) for s in specs if not s.endswith(".txt")
             ]
-        elif os.path.exists(spec_base):
-            specs = [CardSpec(spec_base.split(".")[0], spec_base)]
         else:
-            specs = [CardSpec(spec_base, None)]
+            abs_spec_base = file_path.parent / Path(spec_base).name
+            if os.path.exists(abs_spec_base):
+                specs = [CardSpec(spec_base.split(".")[0], str(abs_spec_base))]
+            else:
+                specs = [CardSpec(spec_base, None)]
 
         used_configs = parts[1:]
         for c in used_configs:
