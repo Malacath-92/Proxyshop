@@ -70,7 +70,7 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
     card_lines = [l for l in spec_lines if l not in config_lines]
 
     # Find all the configurations first
-    configs = {}
+    configs: dict[str, RenderConfiguration] = {}
     for l in config_lines:
         [config_name, config_spec] = map(str.strip, l.split(":"))
         configs[config_name] = RenderConfiguration(
@@ -79,8 +79,8 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
         )
 
     # Now find all the cards and parse them by using the configs
-    cards = []
-    groups = []
+    cards: list[CardDetails] = []
+    groups: list[list[CardSpec]] = []
     for l in card_lines:
         # Entering a group
         if l.startswith("{"):
@@ -112,8 +112,8 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
             # Pretend this is a file right next to the spec and parse that
             full_card_path = file_path.parent / Path(spec).name
             card_info = parse_card_info(full_card_path)
-            if path is not None and "art" not in card_info["additional_cfg"]:
-                card_info["additional_cfg"]["art"] = path
+            if path is not None and "art" not in card_info["kwargs"]:
+                card_info["kwargs"]["art"] = path
             cards.append(card_info)
 
         if "*" in spec_base:
