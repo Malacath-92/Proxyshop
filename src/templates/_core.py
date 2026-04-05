@@ -247,6 +247,8 @@ class BaseTemplate:
     @cached_property
     def output_directory(self) -> Path:
         """Directory where the rendered image will be saved to."""
+        if output_directory := self.layout.file['kwargs'].get("dir", None):
+            return PATH.OUT / Path(output_directory)
         return PATH.OUT
 
     @cached_property
@@ -286,10 +288,6 @@ class BaseTemplate:
         path = Path(self.output_directory, sanitize_card_filename(name)).with_suffix(
             f".{self.config.output_file_type}"
         )
-
-        if self.config.maintain_folder_structure and self.art_file.is_relative_to(PATH.ART):
-            relative_path = self.art_file.parent.relative_to(PATH.ART)
-            path = path.parent / relative_path / path.name
 
         # Are we overwriting duplicate names?
         if not self.config.overwrite_duplicate:
@@ -1657,10 +1655,8 @@ class BaseTemplate:
             await self.pause_async("Rendering paused for manual editing.")
 
         # Make sure output folder exists
-        if self.config.maintain_folder_structure:
-            output_folder = self.output_file_name.parent
-            if not os.path.exists(output_folder):
-                os.makedirs(output_folder)
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
 
         # Save the document
         if not self.run_tasks(

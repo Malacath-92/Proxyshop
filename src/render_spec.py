@@ -116,8 +116,14 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
             card_info = parse_card_info(full_card_path)
 
             path = card_spec.actual_path
-            if path is not None and "art" not in card_info["kwargs"]:
-                card_info["kwargs"]["art"] = str(path)
+            if path is not None:
+                if "art" not in card_info["kwargs"]:
+                    card_info["kwargs"]["art"] = str(path)
+                if "dir" not in card_info["kwargs"]:
+                    if parent_dir in path.parents:
+                        rel_dir = path.relative_to(parent_dir).parent
+                        card_info["kwargs"]["dir"] = str(rel_dir)
+
             cards.append(card_info)
 
         if "*" in spec_base:
