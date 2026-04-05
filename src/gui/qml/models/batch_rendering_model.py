@@ -214,7 +214,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
             selections = await self._file_dialog_model.select_images(
                 dialog_id="batch_mode_render",
                 filters=[
-                    FileDialogModel.IMAGES_AND_JSON_FILTER,
+                    FileDialogModel.IMAGES_AND_DATA_FILTER,
                     FileDialogModel.ALL_FILTER,
                 ],
             )

@@ -175,7 +175,7 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
             selections = await self._file_dialog_model.select_images(
                 dialog_id="template_list_render",
                 filters=[
-                    FileDialogModel.IMAGES_AND_JSON_FILTER,
+                    FileDialogModel.IMAGES_AND_DATA_FILTER,
                     FileDialogModel.ALL_FILTER,
                 ],
             )
