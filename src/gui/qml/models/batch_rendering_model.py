@@ -72,6 +72,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
         self._render_queue = render_queue
         self._test_renders_model = test_renders_model
 
+        self.template_library = template_library
         self.built_in_templates_by_layout: dict[
             LayoutCategory, dict[str, AssembledTemplate]
         ] = {}
@@ -199,6 +200,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
             ) -> None:
                 if render_operations := prepare_render_operations(
                     self.template_choices,
+                    self.template_library,
                     (input,),
                     file_dialog=self._file_dialog_model,
                     message_dialog=self._message_dialog_model,
