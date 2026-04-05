@@ -29,7 +29,7 @@ class RenderConfiguration:
 @dataclass
 class CardSpec:
     spec: str
-    actual_path: str | None
+    actual_path: Path | None
 
 
 class RenderSpec(TypedDict):
@@ -58,7 +58,7 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
 
     # Extract just the spec name
     file_name = file_path.stem
-    parent_dir = str(file_path.parent)
+    parent_dir = file_path.parent
 
     # Load all the content and get rid of empty lines and comments
     spec_lines = open(file_path, "r").read().splitlines()
@@ -103,28 +103,32 @@ def parse_render_spec(file_path: Path) -> RenderSpec:
             )
 
         def append_card(card_spec: CardSpec):
-            spec, path = astuple(card_spec)
+            spec = card_spec.spec
+
             # Make sure the extension doesn't contain a ']' as that implies
             # we have something without extension using a config that contains
             # something with extension, e.g. [art=file.png]
             if not re.match(r"\.[^\]]+$", spec):
                 spec += ".png"
+
             # Pretend this is a file right next to the spec and parse that
-            full_card_path = file_path.parent / Path(spec).name
+            full_card_path = parent_dir / Path(spec).name
             card_info = parse_card_info(full_card_path)
+
+            path = card_spec.actual_path
             if path is not None and "art" not in card_info["kwargs"]:
-                card_info["kwargs"]["art"] = path
+                card_info["kwargs"]["art"] = str(path)
             cards.append(card_info)
 
         if "*" in spec_base:
             specs = glob.glob(spec_base, root_dir=parent_dir, recursive=True)
             specs = [
-                CardSpec(s.split(".")[0], s) for s in specs if not s.endswith(".txt")
+                CardSpec(s.split(".")[0], parent_dir / s) for s in specs if not s.endswith(".txt")
             ]
         else:
             abs_spec_base = file_path.parent / Path(spec_base).name
             if os.path.exists(abs_spec_base):
-                specs = [CardSpec(spec_base.split(".")[0], str(abs_spec_base))]
+                specs = [CardSpec(spec_base.split(".")[0], abs_spec_base)]
             else:
                 specs = [CardSpec(spec_base, None)]
 
