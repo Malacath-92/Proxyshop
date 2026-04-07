@@ -246,7 +246,16 @@ class NormalLayout:
     @cached_property
     def art_file(self) -> Path:
         """Path: Art image file path."""
-        return Path(self.file["file"])
+        art_file = self.file['kwargs'].get('art', None)
+        if art_file is not None:
+            art_file = Path(art_file)
+            if art_file.is_absolute():
+                return art_file
+            else:
+                file = Path(self.file["file"])
+                return file.parent / art_file
+        else:
+            return Path(self.file["file"])
 
     @cached_property
     def scryfall_scan(self) -> str:
@@ -1574,7 +1583,7 @@ class SplitLayout(NormalLayout):
     @cached_property
     def art_files(self) -> list[Path]:
         """list[Path]: Two image files, second is appended during render process."""
-        return [Path(self.file["file"])]
+        return [super().art_file]
 
     @cached_property
     def display_name(self) -> str:
