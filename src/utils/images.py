@@ -59,8 +59,8 @@ def match_images_with_data_files(
         Pydantic.ValidationError: if some of the data files don't conform to the data model
     """
     data_files = [pth for pth in paths if pth.suffix == ".json"]
-    render_specs = [pth for pth in paths if pth.suffix == ".txt"]
-    image_files = [pth for pth in paths if pth.suffix not in (".json", ".txt")]
+    render_specs = [pth for pth in paths if pth.suffix in (".yaml", ".yml")]
+    image_files = [pth for pth in paths if pth.suffix not in (".json", ".yaml", ".yml")]
 
     results: list[CardDetails | tuple[CardDetails, ScryfallCard]] = []
 
@@ -88,9 +88,12 @@ def match_images_with_data_files(
 
     try:
         for path in render_specs:
-            cards = parse_render_spec(path)["cards"]
-            for card in cards:
-                add_card(card)
+            try:
+                cards = parse_render_spec(path)["cards"]
+                for card in cards:
+                    add_card(card)
+            except ValidationError as e:
+                raise _ValidationError(path)
 
         for path in image_files:
             card = parse_card_info(path)
