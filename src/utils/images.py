@@ -1,8 +1,8 @@
+from dataclasses import dataclass
 from logging import getLogger
 from os import PathLike
 from pathlib import Path
 from typing import IO
-from dataclasses import dataclass
 
 from PIL import Image
 from pydantic import ValidationError
@@ -81,8 +81,8 @@ def match_images_with_data_files(
                         ScryfallCard.model_validate_json(data_file.read_bytes()),
                     )
                 )
-            except ValidationError:
-                raise _ValidationError(data_file)
+            except ValidationError as e:
+                raise _ValidationError(data_file) from e
         else:
             results.append(card)
 
@@ -93,7 +93,10 @@ def match_images_with_data_files(
                 for card in cards:
                     add_card(card)
             except ValidationError as e:
-                raise _ValidationError(path)
+                raise _ValidationError(path) from e
+
+            for card in cards:
+                add_card(card)
 
         for path in image_files:
             card = parse_card_info(path)
