@@ -70,7 +70,8 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
         self._message_dialog_model = message_dialog_model
         self._template_library = template_library
         self._test_renders_model = test_renders_model
-        self.template_library = template_library
+        self._template_library = template_library
+        
         self.built_in_templates = template_library.built_in_templates_by_name
         self.plugin_templates = template_library.plugin_templates_by_name
 
@@ -161,7 +162,7 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
             ) -> None:
                 if render_operations := prepare_render_operations(
                     template,
-                    self.template_library,
+                    self._template_library,
                     (input,),
                     file_dialog=self._file_dialog_model,
                     message_dialog=self._message_dialog_model,

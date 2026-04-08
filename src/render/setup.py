@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING, TypedDict
 
 from src import CON, ENV
 from src._config import AppConfig
-from src._loader import ConfigHandler, RenderableTemplate, TemplateLibrary, get_template_class
+from src._loader import (
+    ConfigHandler,
+    RenderableTemplate,
+    TemplateLibrary,
+    get_template_class,
+)
 from src.cards import CardDetails
 from src.enums.mtg import LayoutCategory
 from src.layouts import NormalLayout, assign_layout, join_dual_card_layouts
@@ -165,13 +170,14 @@ def prepare_render_operations(
 
         template_to_use: RenderableTemplate | None = None
 
-        if 'tmpl' in card['kwargs']:
-            template_name = card['kwargs']['tmpl']
-            if builtin_template := template_library.built_in_templates_by_name.get(template_name, None):
+        if template_name := card["kwargs"].get("tmpl"):
+            if builtin_template := template_library.built_in_templates_by_name.get(
+                template_name, None
+            ):
                 if layout.category in builtin_template.layout_categories:
                     template_to_use = builtin_template
             if template_to_use is None:
-                for _, templates in template_library.plugin_templates_by_name.items():
+                for templates in template_library.plugin_templates_by_name.values():
                     if plugin_template := templates.get(template_name, None):
                         if layout.category in plugin_template.layout_categories:
                             template_to_use = plugin_template

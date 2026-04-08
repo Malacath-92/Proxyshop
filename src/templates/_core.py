@@ -2,7 +2,6 @@
 * CORE PROXYSHOP TEMPLATES
 """
 
-import os
 from collections.abc import Callable, Sequence
 from contextlib import suppress
 from functools import cached_property
@@ -247,8 +246,8 @@ class BaseTemplate:
     @cached_property
     def output_directory(self) -> Path:
         """Directory where the rendered image will be saved to."""
-        if output_directory := self.layout.file['kwargs'].get("dir", None):
-            return PATH.OUT / Path(output_directory)
+        if output_directory := self.layout.file["kwargs"].get("dir", None):
+            return PATH.OUT / output_directory
         return PATH.OUT
 
     @cached_property
@@ -1642,8 +1641,7 @@ class BaseTemplate:
             await self.pause_async("Rendering paused for manual editing.")
 
         # Make sure output folder exists
-        if not os.path.exists(self.output_directory):
-            os.makedirs(self.output_directory)
+        self.output_directory.mkdir(parents=True, exist_ok=True)
 
         # Save the document
         if not self.run_tasks(
