@@ -9,7 +9,7 @@ import os
 import re
 import glob
 from pathlib import Path
-from typing import Dict, TypedDict, Annotated, TypeVar
+from typing import TypedDict, Annotated, TypeVar
 from dataclasses import dataclass
 
 from pydantic import BaseModel, RootModel, BeforeValidator
@@ -19,15 +19,21 @@ from src.utils.data_structures import parse_model
 
 # region Model-Types
 
-
 def __ensure_list__[T](values: list[T] | T) -> list[T]:
     if isinstance(values, list):
         return values  # type: ignore
     return [values]
 
 
+def __ensure_str__(values: list[str] | str) -> str:
+    if isinstance(values, list):
+        return ' '.join(values)
+    return values
+
+
 T = TypeVar("T")
 EnsuredList = Annotated[list[T], BeforeValidator(__ensure_list__)]
+EnsuredStr = Annotated[str, BeforeValidator(__ensure_str__)]
 
 
 class ConfigModel(BaseModel):
@@ -49,17 +55,11 @@ class GroupModel(BaseModel):
 class RenderSpecModel(BaseModel):
     files: EnsuredList[FileModel | str] = []
     groups: EnsuredList[GroupModel] = []
-    configs: EnsuredList[ConfigModel] = []
+    configs: dict[str, EnsuredStr] = {}
 
 
 # endregion Model-Types
 # region Types
-
-
-@dataclass
-class RenderConfiguration:
-    name: str
-    spec: str
 
 
 @dataclass
@@ -73,7 +73,7 @@ class RenderSpec(TypedDict):
 
     name: str
     file: Path
-    configs: Dict[str, RenderConfiguration]
+    configs: dict[str, str]
     cards: list[CardDetails]
 
 
@@ -83,6 +83,7 @@ class RenderSpec(TypedDict):
 
 
 def parse_render_spec_file(render_spec_path: Path) -> RenderSpecModel:
+    print(RootModel[RenderSpecModel].model_json_schema())
     return parse_model(render_spec_path, RootModel[RenderSpecModel]).root
 
 
@@ -97,11 +98,6 @@ def parse_render_spec(render_spec_path: Path) -> RenderSpec:
     """
 
     render_spec_data = parse_render_spec_file(render_spec_path)
-
-    configs = {
-        c.name: RenderConfiguration(c.name, " ".join(c.settings))
-        for c in render_spec_data.configs
-    }
 
     render_spec_name = render_spec_path.stem
     parent_dir = render_spec_path.parent
@@ -149,7 +145,7 @@ def parse_render_spec(render_spec_path: Path) -> RenderSpec:
 
     def append_configs(card: CardSpec, card_configs: list[str]) -> CardSpec:
         resolved_configs = [
-            configs[c].spec if c in configs else c for c in card_configs
+            render_spec_data.configs[c] if c in render_spec_data.configs else c for c in card_configs
         ]
         config = " ".join(resolved_configs)
         return CardSpec(
@@ -212,7 +208,7 @@ def parse_render_spec(render_spec_path: Path) -> RenderSpec:
     return {
         "name": render_spec_name,
         "file": render_spec_path,
-        "configs": configs,
+        "configs": render_spec_data.configs,
         "cards": cards,
     }
 

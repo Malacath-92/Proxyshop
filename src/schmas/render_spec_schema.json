@@ -162,19 +162,22 @@
                     "title": "Groups"
                 },
                 "configs": {
-                    "anyOf": [
-                        {
-                            "items": {
-                                "$ref": "#/$defs/ConfigModel"
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "type": "string"
+                                },
+                                "type": "array"
                             },
-                            "type": "array"
-                        },
-                        {
-                            "$ref": "#/$defs/ConfigModel"
-                        }
-                    ],
-                    "default": [],
-                    "title": "Configs"
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "default": {},
+                    "title": "Configs",
+                    "type": "object"
                 }
             },
             "title": "RenderSpecModel",
