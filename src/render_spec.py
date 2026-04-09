@@ -9,7 +9,7 @@ import os
 import re
 import glob
 from pathlib import Path
-from typing import TypedDict, Annotated, TypeVar
+from typing import Annotated, TypeVar
 from dataclasses import dataclass
 
 from pydantic import BaseModel, RootModel, BeforeValidator
@@ -19,6 +19,7 @@ from src.utils.data_structures import parse_model
 
 # region Model-Types
 
+
 def __ensure_list__[T](values: list[T] | T) -> list[T]:
     if isinstance(values, list):
         return values  # type: ignore
@@ -27,7 +28,7 @@ def __ensure_list__[T](values: list[T] | T) -> list[T]:
 
 def __ensure_str__(values: list[str] | str) -> str:
     if isinstance(values, list):
-        return ' '.join(values)
+        return " ".join(values)
     return values
 
 
@@ -68,7 +69,8 @@ class CardSpec:
     actual_path: Path | None
 
 
-class RenderSpec(TypedDict):
+@dataclass
+class RenderSpec:
     """Render spec obtained from parsing the file."""
 
     name: str
@@ -145,7 +147,8 @@ def parse_render_spec(render_spec_path: Path) -> RenderSpec:
 
     def append_configs(card: CardSpec, card_configs: list[str]) -> CardSpec:
         resolved_configs = [
-            render_spec_data.configs[c] if c in render_spec_data.configs else c for c in card_configs
+            render_spec_data.configs[c] if c in render_spec_data.configs else c
+            for c in card_configs
         ]
         config = " ".join(resolved_configs)
         return CardSpec(
@@ -205,12 +208,12 @@ def parse_render_spec(render_spec_path: Path) -> RenderSpec:
         for card_spec in parse_group(group):
             append_card(card_spec)
 
-    return {
-        "name": render_spec_name,
-        "file": render_spec_path,
-        "configs": render_spec_data.configs,
-        "cards": cards,
-    }
+    return RenderSpec(
+        name=render_spec_name,
+        file=render_spec_path,
+        configs=render_spec_data.configs,
+        cards=cards,
+    )
 
 
 # endregion Parsing
