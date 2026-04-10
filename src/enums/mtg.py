@@ -26,6 +26,7 @@ class LayoutCategory(StrEnum):
     Planeswalker = "Planeswalker"
     PlaneswalkerMDFC = "PW MDFC"
     PlaneswalkerTransform = "PW Transform"
+    Prepare = "Prepare"
     Prototype = "Prototype"
     Saga = "Saga"
     Split = "Split"
@@ -58,6 +59,7 @@ class LayoutType(StrEnum):
     PlaneswalkerMDFCFront = "pw_mdfc_front"
     PlaneswalkerTransformBack = "pw_tf_back"
     PlaneswalkerTransformFront = "pw_tf_front"
+    Prepare = "prepare"
     Prototype = "prototype"
     Saga = "saga"
     Split = "split"
@@ -80,6 +82,7 @@ class LayoutScryfall(StrEnum):
     Class = "class"
     Saga = "saga"
     Adventure = "adventure"
+    Prepare = "prepare"
     Mutate = "mutate"
     Prototype = "prototype"
     Battle = "battle"
@@ -121,6 +124,7 @@ layout_map_category: dict[LayoutCategory, tuple[LayoutType, ...]] = {
     LayoutCategory.Mutate: (LayoutType.Mutate,),
     LayoutCategory.Prototype: (LayoutType.Prototype,),
     LayoutCategory.Adventure: (LayoutType.Adventure,),
+    LayoutCategory.Prepare: (LayoutType.Prepare,),
     LayoutCategory.Leveler: (LayoutType.Leveler,),
     LayoutCategory.Split: (LayoutType.Split,),
     LayoutCategory.Battle: (LayoutType.Battle,),

@@ -18,7 +18,7 @@ from src._state import PATH
 from src.cards import CardDetails, get_card_data, process_card_data
 from src.console import LogColors
 from src.enums.mtg import CardTextPatterns
-from src.layouts import CardLayout, layout_map
+from src.layouts import NormalLayout, layout_map
 
 _logger = getLogger(__name__)
 
@@ -38,7 +38,7 @@ def get_frame_logic_cases() -> dict[str, dict[str, FrameData]]:
     return load_data_file(Path(PATH.SRC_DATA_TESTS, "frame_data.toml"))
 
 
-def format_result(layout: CardLayout) -> FrameData:
+def format_result(layout: NormalLayout) -> FrameData:
     """Format frame logic test result for comparison.
 
     Args:

@@ -251,6 +251,15 @@ class LAYERS(StrEnum):
     DIVIDER_ADVENTURE = "Divider - Adventure"
     WINGS = "Wings"
 
+    # Prepare
+    PREPARE = "Prepare"
+    NAME_PREPARE = "Card Name - Prepare"
+    TYPE_LINE_PREPARE = "Typeline - Prepare"
+    MANA_COST_PREPARE = "Mana Cost - Prepare"
+    RULES_TEXT_PREPARE = "Rules Text - Prepare"
+    TEXTBOX_REFERENCE_PREPARE = "Textbox Reference - Prepare"
+    DIVIDER_PREPARE = "Divider - Prepare"
+
     # Battles
     DEFENSE = "Defense"
     DEFENSE_REFERENCE = "Defense Reference"
