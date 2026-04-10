@@ -11,7 +11,7 @@ from photoshop.api._layerSet import LayerSet
 import src.helpers as psd
 import src.text_layers as text_classes
 from src.enums.layers import LAYERS
-from src.layouts import AdventureLayout, NormalLayout
+from src.layouts import AdventureLayout
 from src.schema.colors import ColorObject, GradientConfig
 from src.templates._core import NormalTemplate
 from src.templates._vector import VectorTemplate
@@ -27,9 +27,6 @@ class AdventureMod(NormalTemplate):
     Adds:
         * Adventure side text layers (Mana cost, name, typeline, and oracle text) and textbox reference.
     """
-
-    def __init__(self, layout: NormalLayout):
-        super().__init__(layout)
 
     """
     * Mixin Methods
