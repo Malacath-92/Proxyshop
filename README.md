@@ -64,6 +64,11 @@ If you need help with this app or wish to troubleshoot an issue, [please join ou
     ```
     Brainstorm [SLD] {175}$My Creator Name.jpg
     ```
+- Proxyshop also has support for additional key-value pairs in the filename via `[key=value]`.
+  - Force Set-Symbol `[sym=SET]`: The `SET` part of this follows the same rules as `[SET]`, but will only affect the set-symbol.
+  - Template `[tmpl=TEMPLATE]`: Forces Proxyshop to render the card with the given template. Note that `TEMPLATE` has to match exactly the name of a template as seen in the UI _and_ the template has to support the card's layout. Otherwise Proxyshop will fall back to the selected template.
+  - Art-File `[art=FILE]`: Force to use a specific art, other than the art-file. `FILE` has to be an absolute path or relative to the art-file.
+  - Nickname: `[nick=NICKNAME]`: Use the specified nickname, only supported by select templates, e.g. Borderless.
 
 # 💻 Using the Proxyshop GUI
 
