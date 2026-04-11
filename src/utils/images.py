@@ -39,6 +39,8 @@ def save_scaled_card_image(
         if image_format == "png":
             save_kwargs = {"optimize": True}
         elif image_format == "jpeg":
+            if f.mode == "RGBA":
+                f = f.convert("RGB")
             save_kwargs = {"optimize": True, "quality": quality}
         elif image_format == "webp":
             save_kwargs = {"quality": quality, "method": 6}
