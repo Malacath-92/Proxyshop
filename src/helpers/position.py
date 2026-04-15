@@ -20,6 +20,7 @@ from src.helpers.bounds import (
     get_layer_dimensions,
     get_layer_height,
     get_layer_width,
+    get_card_dimensions,
 )
 from src.helpers.selection import (
     check_selection_bounds,
@@ -252,7 +253,7 @@ def space_layers_apart(layers: Sequence[ArtLayer | LayerSet], gap: int | float) 
 
 def frame_panorama(
     layer: ArtLayer | LayerSet,
-    reference: ReferenceLayer,
+    document: Document,
     panorama_position: tuple[int, int],
     panorama_size: tuple[int, int],
     anchor: AnchorPosition = AnchorPosition.TopLeft,
@@ -265,29 +266,24 @@ def frame_panorama(
     """
     # Get layer and full reference dimensions
     art_dim: LayerDimensions = get_layer_dimensions(layer)
-    ref_dim = get_layer_dimensions(reference)
-    ref_dim["width"] = ref_dim["width"] * panorama_size[0]
-    ref_dim["height"] = ref_dim["height"] * panorama_size[1]
+    ref_dim = get_card_dimensions(document)
+    panorama_dim = (ref_dim["width"] * panorama_size[0],
+                    ref_dim["height"] * panorama_size[1])
 
     # Scale the layer to fit either the largest dimension
     scale = 100 * max(
-        (ref_dim["width"] / art_dim["width"]), (ref_dim["height"] / art_dim["height"])
+        (panorama_dim[0] / art_dim["width"]), (panorama_dim[1] / art_dim["height"])
     )
     layer.resize(scale, scale, anchor)
 
-    # Align the original layer on the left
-    alignments = ("left", "center_y")
+    # Align the original layer on the top-left
+    alignments = ("left", "top")
     align(alignments, layer, ref_dim)
-    layer.translate(0, ref_dim["height"] / panorama_size[1])
 
     # Move the layer according to the given index
-    ref_dim = (
-        reference if isinstance(reference, dict) else get_layer_dimensions(reference)
-    )
     pano_x = -ref_dim["width"] * panorama_position[0]
     pano_y = -ref_dim["height"] * panorama_position[1]
-    layer.translate(pano_x, 0)
-    layer.translate(0, pano_y)
+    layer.translate(pano_x, pano_y)
 
 
 def frame_layer(

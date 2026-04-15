@@ -801,8 +801,8 @@ class BaseTemplate:
             )
 
         # Frame the artwork
-        if self.layout.is_panorama and art_reference is not None:
-            psd.frame_panorama(art_layer, art_reference, self.layout.panorama_element, self.layout.panorama_size)
+        if self.layout.is_panorama:
+            psd.frame_panorama(art_layer, self.docref, self.layout.panorama_element, self.layout.panorama_size)
         elif art_reference:
             psd.frame_layer(layer=art_layer, ref=art_reference)
 
