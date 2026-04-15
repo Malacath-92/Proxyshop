@@ -1454,19 +1454,6 @@ class BorderlessVectorTemplate(
         )
 
     @cached_property
-    def panorama_mode_enabled(self) -> bool:
-        """Returns True if panorama mode is enabled."""
-        return bool(cfg.get_setting(
-            section="FRAME",
-            key="Panorama.Mode",
-            default=False))
-
-    @cached_property
-    def panorama_is_horizontal(self) -> bool:
-        """Returns True if panorama goes both down and to the side."""
-        return self.panorama_mode_enabled and self.panorama_size[1] > 1
-
-    @cached_property
     def multicolor_textbox(self) -> bool:
         """Returns True if Textbox for multicolored cards should use blended colors."""
         return bool(
@@ -1560,14 +1547,8 @@ class BorderlessVectorTemplate(
 
     @cached_property
     def art_frame(self) -> str:
-        if self.panorama_mode_enabled:
-            if self.panorama_is_horizontal:
-                return f"{LAYERS.FULL_CARD_FRAME}"
-            else:
-                return f"{LAYERS.FULL_ART_FRAME}"
-        else:
-            # Use different positioning based on textbox size
-            return f"{LAYERS.ART_FRAME} {self.size}"
+        # Use different positioning based on textbox size
+        return f"{LAYERS.ART_FRAME} {self.size}"
 
     """
     * Bool
