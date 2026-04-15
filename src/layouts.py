@@ -233,10 +233,18 @@ class NormalLayout:
     @cached_property
     def is_mdfc(self) -> bool:
         return False
+
+    """
+    * Panorama Data
+    """
     
     @cached_property
     def is_panorama(self) -> bool:
-        return self.file['kwargs'].get('pano_size', None) is not None
+        return self.panorama_size[0] > 1 or self.panorama_size[1] > 1
+    
+    @cached_property
+    def is_vertical_panorama(self) -> bool:
+        return self.panorama_size[1] > 1
 
     @cached_property
     def panorama_element(self) -> tuple[int, int]:

@@ -1206,11 +1206,14 @@ class BaseTemplate:
     @try_photoshop
     def color_border(self) -> None:
         """Color this card's border based on given setting."""
-        if self.border_group and self.border_color != BorderColor.Black:
-            psd.apply_fx(
-                self.border_group,
-                [EffectColorOverlay(color=psd.get_color(self.border_color))],
-            )
+        if self.border_group is not None:
+            if self.layout.is_vertical_panorama:
+                self.border_group.visible = False
+            elif self.border_color != BorderColor.Black:
+                psd.apply_fx(
+                    self.border_group,
+                    [EffectColorOverlay(color=psd.get_color(self.border_color))],
+                )
 
     """
     * Formatted Text Layers
