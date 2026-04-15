@@ -873,10 +873,7 @@ class BaseTemplate:
                 layer.rotate(90)
 
             # Frame the layer and position it above the art layer
-            bleed = int(self.docref.resolution / 8)
-            dims = psd.get_dimensions_from_bounds(
-                (bleed, bleed, self.docref.width - bleed, self.docref.height - bleed)
-            )
+            dims = psd.get_card_dimensions(self.docref)
             psd.frame_layer(layer, dims)
             if self.art_layer:
                 layer.move(self.art_layer, ElementPlacement.PlaceBefore)
