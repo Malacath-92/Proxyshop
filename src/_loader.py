@@ -1559,6 +1559,19 @@ class TemplateLibrary:
         if self.initial_versions != self.versions:
             dump_model(PATH.SRC_DATA_VERSIONS, self.versions)
 
+    def get_templates_for_layout_category(
+        self, layout_category: LayoutCategory
+    ) -> list[AssembledTemplate]:
+        templates: list[AssembledTemplate] = []
+        for template in self.built_in_templates_by_name.values():
+            if template.is_installed(layout_category):
+                templates.append(template)
+        for plugin_templates in self.plugin_templates_by_name.values():
+            for template in plugin_templates.values():
+                if template.is_installed(layout_category):
+                    templates.append(template)
+        return templates
+
     def _group_templates_by_plugin(
         self, templates: list[AppTemplate]
     ) -> tuple[list[AppTemplate], dict[AppPlugin, list[AppTemplate]]]:
