@@ -44,7 +44,9 @@ def match_images_with_data_files(
     def add_card(card: CardDetails) -> None:
         card_name = card["name"]
 
-        idx = find_index(data_files, lambda item: item.stem == card_name)
+        idx = find_index(
+            data_files, lambda item: parse_card_info(item)["name"] == card_name
+        )
         if idx > -1:
             data_file = data_files.pop(idx)
             try:
