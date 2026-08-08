@@ -10,6 +10,7 @@ from functools import cached_property
 from json import load
 from logging import getLogger
 from pathlib import Path
+from shutil import rmtree
 from threading import Lock
 from traceback import print_exc
 from types import ModuleType
@@ -30,6 +31,7 @@ from pydantic import (
     create_model,
     model_validator,
 )
+from pydantic_core import Url
 
 from src._state import PATH, AppConstants, AppEnvironment
 from src.enums.mtg import (
@@ -543,6 +545,27 @@ class ConfigHandler:
 
 # region Plugins
 
+
+class RemotePluginDefinitionBase(BaseModel):
+    name: str
+    author: str
+
+
+class RemoteGithubPluginDefinition(RemotePluginDefinitionBase):
+    github_author: str
+    github_repo: str
+
+
+class RemoteGitPluginDefinition(RemotePluginDefinitionBase):
+    git_repo: Url
+
+
+class RemotePluginDefinitions(
+    RootModel[dict[str, RemoteGithubPluginDefinition | RemoteGitPluginDefinition]]
+):
+    pass
+
+
 _template_import_lock = Lock()
 
 
@@ -659,9 +682,9 @@ class AppPlugin:
         return self._info.name if self._info.name is not None else self._root.stem
 
     @cached_property
-    def author(self) -> str:
+    def author(self) -> str | None:
         """str: Displayed name of the plugin's author. Fallback on name."""
-        return self._info.author if self._info.author is not None else self.name
+        return self._info.author if self._info.author is not None else None
 
     @cached_property
     def description(self) -> str | None:
@@ -819,6 +842,9 @@ class AppPlugin:
         """list[AppTemplate]: Returns a list of AppTemplate's pulled from this plugin."""
         return list(self.template_map.values())
 
+    def remove(self) -> None:
+        rmtree(self._root)
+
 
 def get_all_plugins(
     con: AppConstants, env: AppEnvironment, template_file_versions: dict[str, str]
@@ -830,7 +856,7 @@ def get_all_plugins(
         env: Global environment object.
 
     Returns:
-        A mapping of plugin names to their respective 'AppPlugin' object.
+        A mapping of plugin ids to their respective 'AppPlugin' object.
     """
     plugins: dict[str, AppPlugin] = {}
 
@@ -845,7 +871,7 @@ def get_all_plugins(
                 path=folder,
                 template_file_versions=template_file_versions,
             )
-            plugins[plugin.name] = plugin
+            plugins[plugin.id] = plugin
         except Exception:
             print_exc()
     return dict(sorted(plugins.items()))
@@ -1608,6 +1634,72 @@ class TemplateLibrary:
             name: AssembledTemplate(name, templates, plugin)
             for name, templates in grouped.items()
         }
+
+
+class PluginLibrary:
+    def __init__(
+        self,
+        con: AppConstants,
+        env: AppEnvironment,
+        initial_template_file_versions: TemplateFileVersionsModel,
+    ) -> None:
+        self._con = con
+        self._env = env
+        self._initial_template_file_versions = initial_template_file_versions
+        self.plugins: dict[str, AppPlugin] = get_all_plugins(
+            con, env, initial_template_file_versions.root
+        )
+        self.plugins_changed: SubscribableEvent[dict[str, AppPlugin]] = (
+            SubscribableEvent()
+        )
+        self._template_library: TemplateLibrary | None = None
+        self.template_library_changed: SubscribableEvent[TemplateLibrary] = (
+            SubscribableEvent()
+        )
+
+    @property
+    def template_library(self) -> TemplateLibrary:
+        if self._template_library:
+            return self._template_library
+        return self.construct_template_library()
+
+    def construct_template_library(self) -> TemplateLibrary:
+        self._template_library = TemplateLibrary(
+            self._con,
+            self._env,
+            initial_template_file_versions=self._initial_template_file_versions,
+            template_file_versions=self._template_library.versions
+            if self._template_library
+            else self._initial_template_file_versions,
+            plugins=self.plugins,
+        )
+        self.template_library_changed.trigger(self._template_library)
+        return self._template_library
+
+    def add_plugin(self, path: Path) -> AppPlugin:
+        plugin = AppPlugin(
+            self._con,
+            self._env,
+            path,
+            self._template_library.versions.root
+            if self._template_library
+            else self._initial_template_file_versions.root,
+        )
+        self.plugins[plugin.id] = plugin
+        self.plugins_changed.trigger(self.plugins)
+        self.construct_template_library()
+        return plugin
+
+    def remove_plugin(self, plugin_id: str) -> AppPlugin | None:
+        try:
+            if plugin := self.plugins.get(plugin_id, None):
+                plugin.remove()
+                self.plugins.pop(plugin_id, None)
+                self.plugins_changed.trigger(self.plugins)
+                self.construct_template_library()
+                return plugin
+        except Exception:
+            _logger.exception(f"Failed to remove plugin '{plugin_id}'")
 
 
 def get_all_templates(

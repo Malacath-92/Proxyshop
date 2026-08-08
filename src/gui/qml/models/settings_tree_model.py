@@ -6,7 +6,13 @@ from pydantic import BaseModel
 from PySide6.QtCore import Property, QModelIndex, QObject, Signal, Slot
 
 from src._config import AppConfig
-from src._loader import AssembledTemplate, ConfigHandler, TemplateLibrary
+from src._loader import (
+    AppPlugin,
+    AssembledTemplate,
+    ConfigHandler,
+    PluginLibrary,
+    TemplateLibrary,
+)
 from src.gui.qml.models.pydantic_q_list_model import PydanticQItemModel, TreeItem
 
 _logger = getLogger(__name__)
@@ -29,23 +35,39 @@ class SettingsTreeModel(PydanticQItemModel[SettingSectionItem]):
         parent: QObject | None = None,
         *,
         app_config: AppConfig,
-        template_library: TemplateLibrary,
+        plugin_library: PluginLibrary,
     ) -> None:
         super().__init__(parent)
 
         self._app_config = app_config
-        self._template_library = template_library
-        self._root = TreeItem(data=SettingSectionItem(name="root"))
+        self._plugin_library = plugin_library
         self._selected_model_index: QModelIndex = QModelIndex()
         self._selected_title: str = ""
 
+        self._prepare_items()
+
+        plugin_library.plugins_changed.add_listener(self._on_plugins_changed)
+        plugin_library.template_library_changed.add_listener(
+            self._on_template_library_changed
+        )
+
+    @property
+    def _template_library(self) -> TemplateLibrary:
+        return self._plugin_library.template_library
+
+    def _prepare_items(self) -> None:
+        template_library = self._plugin_library.template_library
+
+        self._root = TreeItem(data=SettingSectionItem(name="root"))
         self._app_leaf: TreeItem[SettingSectionItem] = TreeItem(
-            data=SettingSectionItem(name="Application", config=app_config.app_config),
+            data=SettingSectionItem(
+                name="Application", config=self._app_config.app_config
+            ),
             parent=self._root,
         )
         _template_defaults_leaf: TreeItem[SettingSectionItem] = TreeItem(
             data=SettingSectionItem(
-                name="Template defaults", config=app_config.base_config
+                name="Template defaults", config=self._app_config.base_config
             ),
             parent=self._root,
         )
@@ -195,6 +217,15 @@ class SettingsTreeModel(PydanticQItemModel[SettingSectionItem]):
     def save_configs(self) -> None:
         self._app_config.app_config.save()
         self._app_config.base_config.save()
+        self._save_all_template_configs()
+
+    def _save_template_configs(self, templates: Iterable[AssembledTemplate]) -> None:
+        for assembled_template in templates:
+            for named_temaplate in assembled_template.templates:
+                for template_details in named_temaplate.template_classes.values():
+                    template_details["config"].save()
+
+    def _save_all_template_configs(self) -> None:
         self._save_template_configs(
             self._template_library.built_in_templates_by_name.values()
         )
@@ -203,15 +234,43 @@ class SettingsTreeModel(PydanticQItemModel[SettingSectionItem]):
         ) in self._template_library.plugin_templates_by_name.values():
             self._save_template_configs(plugin_templates.values())
 
-    def _save_template_configs(self, templates: Iterable[AssembledTemplate]) -> None:
-        for assembled_template in templates:
-            for named_temaplate in assembled_template.templates:
-                for template_details in named_temaplate.template_classes.values():
-                    template_details["config"].save()
-
     def _on_config_state_changed(
         self, tree_item: TreeItem[SettingSectionItem], has_config: bool
     ) -> None:
         tree_item.data.has_config = has_config
         q_idx = self.index_of_item(tree_item)
         self.dataChanged.emit(q_idx, q_idx, [self.get_role("has_config")])
+
+    def _find_item_by_config(
+        self, config: ConfigHandler | None
+    ) -> TreeItem[SettingSectionItem] | None:
+        if config is None:
+            return None
+
+        def recurse(
+            item: TreeItem[SettingSectionItem],
+        ) -> TreeItem[SettingSectionItem] | None:
+            if item.data.config and config.id == item.data.config.id:
+                return item
+            for child in item.children:
+                if found := recurse(child):
+                    return found
+            return None
+
+        return recurse(self._root)
+
+    def _on_plugins_changed(self, plugins: dict[str, AppPlugin]) -> None:
+        self._save_all_template_configs()
+
+    def _on_template_library_changed(self, template_library: TemplateLibrary) -> None:
+        selected_section = self.selected_section
+
+        self.beginResetModel()
+        self._prepare_items()
+        self.endResetModel()
+
+        if selected_section:
+            if selected_item := self._find_item_by_config(selected_section):
+                self.selected_model_index = self.index_of_item(selected_item)  # pyright: ignore[reportAttributeAccessIssue]
+            else:
+                self.selected_model_index = QModelIndex()  # pyright: ignore[reportAttributeAccessIssue]

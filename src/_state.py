@@ -117,6 +117,7 @@ class PATH(DefinedPaths):
     SRC_DATA_MANIFEST = SRC_DATA / "manifest.yml"
     SRC_DATA_HEXPROOF_SET = SRC_DATA_HEXPROOF / "set.json"
     SRC_DATA_HEXPROOF_META = SRC_DATA_HEXPROOF / "meta.json"
+    SRC_DATA_PREDEFINED_PLUGINS = SRC_DATA / "predefined_plugins.yml"
 
     # Test Data Files
     SRC_DATA_TEMPLATE_RENDER_TEST_CASES = SRC_DATA_TESTS / "template_renders.toml"
@@ -148,6 +149,9 @@ class PATH(DefinedPaths):
     # Generated user data files
     SRC_DATA_USER = SRC_DATA / "user.yml"
     SRC_DATA_VERSIONS = SRC_DATA / "versions.yml"
+    SRC_DATA_PLUGIN_VERSIONS = SRC_DATA / "plugin_versions.yml"
+    SRC_DATA_ADDED_PLUGINS = SRC_DATA / "added_plugins.yml"
+    SRC_DATA_PREVIOUS_UPDATE_CHECK = SRC_DATA / "previous_update_check.json"
 
 
 """
@@ -178,6 +182,7 @@ class AppEnvironment(BaseSettings):
     SYMBOL_UPDATES_REPO: str = ""
     FORCE_RELOAD: bool = False
     VERSION: str = _get_proj_version(PATH.PROJECT_FILE)
+    UPDATE_CHECK_INTERVAL: int = 2
 
     model_config = SettingsConfigDict(env_prefix="PROXYSHOP_")
 

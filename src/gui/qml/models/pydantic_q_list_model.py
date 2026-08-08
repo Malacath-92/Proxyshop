@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Any, override
 
 from pydantic import BaseModel
@@ -156,7 +157,6 @@ class PydanticQItemModel[T: BaseModel](PydanticQItemModelBase[T], QAbstractItemM
         if not value.isValid() or not item:
             self._selected_model_index = value
             self.selected_model_index_changed.emit(value)
-            self.selected_title = ""
             return None
 
         if value != self._selected_model_index:
@@ -185,7 +185,11 @@ class PydanticQListModel[T: BaseModel](PydanticQItemModelBase[T], QAbstractListM
     ) -> None:
         self._roles: dict[int, str] = {
             Qt.ItemDataRole.UserRole + 1 + idx: field
-            for idx, field in enumerate(self.item_model.model_fields)
+            for idx, field in enumerate(
+                chain(
+                    self.item_model.model_fields, self.item_model.model_computed_fields
+                )
+            )
         }
         self._roles_reverse: dict[str, int] = {
             field: idx for idx, field in self._roles.items()
@@ -203,7 +207,7 @@ class PydanticQListModel[T: BaseModel](PydanticQItemModelBase[T], QAbstractListM
 
     # region Signals
 
-    _selected_index_changed = Signal()
+    _selected_index_changed = Signal(name="selectedIndexChanged")
 
     # endregion Signals
 

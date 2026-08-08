@@ -11,9 +11,9 @@ from PySide6.QtCore import QModelIndex, QObject, QPersistentModelIndex, QUrl, Sl
 
 from src._config import AppConfig
 from src._loader import (
-    AppPlugin,
     AssembledTemplate,
     AssembledTemplateInstalledArgs,
+    PluginLibrary,
     TemplateLibrary,
 )
 from src.cards import CardDetails
@@ -62,8 +62,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
         file_dialog_model: FileDialogModel,
         message_dialog_model: MessageDialogContentModel,
         render_queue: RenderQueue,
-        plugins: dict[str, AppPlugin],
-        template_library: TemplateLibrary,
+        plugin_library: PluginLibrary,
         test_renders_model: TestRendersModel,
         app_config: AppConfig,
         parent: QObject | None = None,
@@ -73,8 +72,18 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
         self._message_dialog_model = message_dialog_model
         self._render_queue = render_queue
         self._test_renders_model = test_renders_model
-        self._template_library = template_library
+        self._plugin_library = plugin_library
+        self._template_library = plugin_library.template_library
         self._app_config = app_config
+
+        self._plugin_library.template_library_changed.add_listener(
+            self._on_template_library_changed
+        )
+
+        super().__init__(parent, self._prepare_items(), selected_index)
+
+    def _prepare_items(self) -> list[LayoutCategoryItem]:
+        template_library = self._plugin_library.template_library
 
         self.built_in_templates_by_layout: dict[
             LayoutCategory, dict[str, AssembledTemplate]
@@ -87,7 +96,8 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
         for layout_category in LayoutCategory:
             self.built_in_templates_by_layout.setdefault(layout_category, {})
             self.plugin_templates_by_layout.setdefault(
-                layout_category, {plugin.id: {} for plugin in plugins.values()}
+                layout_category,
+                {plugin.id: {} for plugin in self._plugin_library.plugins.values()},
             )
 
         for name, template in template_library.built_in_templates_by_name.items():
@@ -150,7 +160,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
             )
             layout_cat_items.append(layout_cat_item)
 
-        super().__init__(parent, layout_cat_items, selected_index)
+        return layout_cat_items
 
     @override
     def columnCount(self, parent: QModelIndex | QPersistentModelIndex) -> int:
@@ -327,3 +337,14 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
                     self.dataChanged.emit(
                         q_idx, q_idx, [self.get_role("options_installed")]
                     )
+
+    def _on_template_library_changed(self, template_library: TemplateLibrary) -> None:
+        current_selections = {item.name: item.selected for item in self.items}
+
+        self._template_library = template_library
+
+        self.beginResetModel()
+        self.items = self._prepare_items()
+        for item in self.items:
+            item.selected = current_selections.get(item.name, -1)
+        self.endResetModel()
