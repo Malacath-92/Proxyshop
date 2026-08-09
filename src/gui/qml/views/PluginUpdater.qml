@@ -17,9 +17,18 @@ ApplicationWindow {
     required property var updaterModel
     required property var pathModel
 
-    DelegateModel {
-        id: updaterDelegateModel
+    SortFilterProxyModel {
+        id: sfProxyModel
         model: pluginUpdaterWindow.updaterModel
+        sorters: [
+            StringSorter {
+                roleName: "name"
+            }
+        ]
+    }
+
+    function getVisualModelIndex(idx: int): int {
+        return sfProxyModel.mapFromSource(updaterModel.index(idx, 0)).row;
     }
 
     title: "Plugin manager"
@@ -44,7 +53,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         updaterSplit.restoreState(settings.updaterSplitState);
-        if (updaterDelegateModel.count < 1 && !updaterModel.fetching_data)
+        if (updaterModel.rowCount() < 1 && !updaterModel.fetching_data)
             updaterModel.fetch_data();
     }
     Component.onDestruction: {
@@ -153,8 +162,8 @@ ApplicationWindow {
                             y: availablePluginsList.currentItem?.y ?? 0
                         }
                         highlightFollowsCurrentItem: false
-                        currentIndex: pluginUpdaterWindow.updaterModel.selected_index
-                        model: updaterDelegateModel
+                        currentIndex: pluginUpdaterWindow.getVisualModelIndex(pluginUpdaterWindow.updaterModel.selected_index)
+                        model: sfProxyModel
                         delegate: CustomItemDelegate {
                             id: availablePluginsListDelegate
 
@@ -167,6 +176,7 @@ ApplicationWindow {
                             required property string available_version
                             required property string path
                             required property bool downloading
+                            readonly property int sourceIndex: sfProxyModel.mapToSource(sfProxyModel.index(index, 0)).row
 
                             property bool canDownload: !installed_version && available_version
                             property bool hasUpdateAvailable: available_version && installed_version && (installed_version !== available_version)
@@ -177,7 +187,7 @@ ApplicationWindow {
                             highlighted: false
 
                             onClicked: {
-                                pluginUpdaterWindow.updaterModel.selected_index = index;
+                                pluginUpdaterWindow.updaterModel.selected_index = sourceIndex;
                             }
 
                             contentItem: RowLayout {
@@ -189,7 +199,7 @@ ApplicationWindow {
                                     Layout.alignment: Qt.AlignLeft
 
                                     text: availablePluginsListDelegate.name
-                                    color: availablePluginsListDelegate.installed_version ? (pluginUpdaterWindow.updaterModel.selected_index === availablePluginsListDelegate.index ? pluginUpdaterWindow.systemPalette.highlightedText : pluginUpdaterWindow.systemPalette.text) : pluginUpdaterWindow.systemPalette.placeholderText
+                                    color: availablePluginsListDelegate.installed_version ? (pluginUpdaterWindow.updaterModel.selected_index === availablePluginsListDelegate.sourceIndex ? pluginUpdaterWindow.systemPalette.highlightedText : pluginUpdaterWindow.systemPalette.text) : pluginUpdaterWindow.systemPalette.placeholderText
                                 }
                                 Item {
                                     Layout.fillWidth: true
@@ -211,7 +221,7 @@ ApplicationWindow {
                                                 function onAccepted() {
                                                     messageDialog.accepted.disconnect(onAccepted);
                                                     messageDialog.rejected.disconnect(onRejected);
-                                                    pluginUpdaterWindow.updaterModel.remove_plugin(availablePluginsListDelegate.index);
+                                                    pluginUpdaterWindow.updaterModel.remove_plugin(availablePluginsListDelegate.sourceIndex);
                                                 }
 
                                                 function onRejected() {
@@ -250,7 +260,7 @@ ApplicationWindow {
                                     }
                                     enabled: !availablePluginsListDelegate.downloading && (availablePluginsListDelegate.canDownload || availablePluginsListDelegate.hasUpdateAvailable)
                                     onClicked: {
-                                        pluginUpdaterWindow.updaterModel.download_plugin(availablePluginsListDelegate.index);
+                                        pluginUpdaterWindow.updaterModel.download_plugin(availablePluginsListDelegate.sourceIndex);
                                     }
                                 }
                             }
