@@ -19,6 +19,7 @@ class DownloadableTemplateDetails(BaseModel):
     google_drive_id: str | None
     img: str
     plugin: str
+    plugin_id: str
     template_names: list[str]
     template_classes: list[str]
     layout_categories: list[LayoutCategory]
@@ -108,7 +109,8 @@ class TemplateUpdaterModel(PydanticQListModel[DownloadableTemplateDetails]):
                             class_type=first_item[1][0],
                         ).as_uri()
                     ),
-                    plugin=template.plugin.id if template.plugin else "",
+                    plugin=template.plugin.name if template.plugin else "",
+                    plugin_id=template.plugin.id if template.plugin else "",
                     template_names=template.all_names,
                     template_classes=template.all_classes,
                     layout_categories=template.supported_layout_categories,
@@ -178,7 +180,7 @@ class TemplateUpdaterModel(PydanticQListModel[DownloadableTemplateDetails]):
                     self.items,
                     lambda item: (
                         item.file_name == current_template.file_name
-                        and item.plugin == current_template.plugin
+                        and item.plugin_id == current_template.plugin_id
                     ),
                 )
                 if new_idx > -1:

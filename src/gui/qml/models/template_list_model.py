@@ -41,6 +41,7 @@ class TemplateData(BaseModel):
     is_installed: bool
     has_config: bool
     plugin: str
+    plugin_id: str
 
     @cached_property
     def assembled_template(self) -> AssembledTemplate:
@@ -102,6 +103,7 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
                 is_installed=assembled_template.is_installed(),
                 has_config=assembled_template.has_config(),
                 plugin="",
+                plugin_id="",
                 img=str(path.as_uri())
                 if (path := assembled_template.get_preview_image_path(first(layouts)))
                 else None,
@@ -123,7 +125,10 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
                     missing_template_files=assembled_template.missing_template_files,
                     is_installed=assembled_template.is_installed(),
                     has_config=assembled_template.has_config(),
-                    plugin=plugin_id,
+                    plugin=assembled_template.plugin.name
+                    if assembled_template.plugin
+                    else plugin_id,
+                    plugin_id=plugin_id,
                     img=str(path.as_uri())
                     if (
                         path := assembled_template.get_preview_image_path(
@@ -154,8 +159,8 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
             )
 
             selected_template_entry = self.items[self._selected_index]
-            if selected_template_entry.plugin:
-                template = self.plugin_templates[selected_template_entry.plugin][
+            if selected_template_entry.plugin_id:
+                template = self.plugin_templates[selected_template_entry.plugin_id][
                     selected_template_entry.name
                 ]
             else:
@@ -215,8 +220,8 @@ class TemplateListModel(PydanticQListModel[TemplateData]):
             layout_category = LayoutCategory(layout) if layout else None
 
             selected_template_entry = self.items[self._selected_index]
-            if selected_template_entry.plugin:
-                template = self.plugin_templates[selected_template_entry.plugin][
+            if selected_template_entry.plugin_id:
+                template = self.plugin_templates[selected_template_entry.plugin_id][
                     selected_template_entry.name
                 ]
             else:

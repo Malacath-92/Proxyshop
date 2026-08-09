@@ -33,6 +33,7 @@ _logger = getLogger(__name__)
 class TemplateOption(BaseModel):
     name: str
     plugin: str
+    plugin_id: str
     is_installed: bool
     preview_img_path: str
 
@@ -127,6 +128,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
                 TemplateOption(
                     name=opt_name,
                     plugin="",
+                    plugin_id="",
                     is_installed=opt.is_installed(layout_category),
                     preview_img_path=path.as_uri()
                     if (path := opt.get_preview_image_path(layout_category))
@@ -142,7 +144,8 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
                     opts.append(
                         TemplateOption(
                             name=opt_name,
-                            plugin=plugin,
+                            plugin=opt.plugin.name if opt.plugin else plugin,
+                            plugin_id=plugin,
                             is_installed=opt.is_installed(layout_category),
                             preview_img_path=path.as_uri()
                             if (path := opt.get_preview_image_path(layout_category))
@@ -179,10 +182,10 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
                 continue
 
             layout_category = LayoutCategory(item.name)
-            if selected_opt.plugin:
+            if selected_opt.plugin_id:
                 template_choices[layout_category] = self.plugin_templates_by_layout[
                     layout_category
-                ][selected_opt.plugin][selected_opt.name]
+                ][selected_opt.plugin_id][selected_opt.name]
             else:
                 template_choices[layout_category] = self.built_in_templates_by_layout[
                     layout_category
@@ -329,7 +332,7 @@ class BatchRenderingModel(PydanticQListModel[LayoutCategoryItem]):
         for idx, item in enumerate(self.items):
             for opt_idx, opt in enumerate(item.options_details):
                 if (
-                    opt.plugin if origin.plugin else not opt.plugin
+                    opt.plugin_id if origin.plugin else not opt.plugin_id
                 ) and opt.name in origin.named_templates:
                     opt.is_installed = True
                     item.options_installed[opt_idx] = True
