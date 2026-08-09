@@ -182,7 +182,7 @@ class AppEnvironment(BaseSettings):
     SYMBOL_UPDATES_REPO: str = ""
     FORCE_RELOAD: bool = False
     VERSION: str = _get_proj_version(PATH.PROJECT_FILE)
-    UPDATE_CHECK_INTERVAL: int = 2
+    UPDATE_CHECK_INTERVAL: float = 2.0
 
     model_config = SettingsConfigDict(env_prefix="PROXYSHOP_")
 
