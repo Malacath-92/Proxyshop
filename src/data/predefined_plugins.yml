@@ -3,3 +3,9 @@ proxy_stuff-pappnu:
   author: pappnu
   github_author: pappnu
   github_repo: proxy_stuff
+
+proxyshop-plugin-warpdandy-pappnu:
+  name: WarpDandy
+  author: WarpDandy
+  github_author: pappnu
+  github_repo: proxyshop-plugin-warpdandy
